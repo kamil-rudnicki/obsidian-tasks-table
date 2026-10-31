@@ -1,0 +1,154 @@
+import { describe, expect, test } from 'vitest'
+import { applyTaskChanges, createTaskLine } from './taskLine'
+
+const emojiOptions = { format: 'emoji', today: '2026-10-31', setDoneDate: true } as const
+const dataviewOptions = { ...emojiOptions, format: 'dataview' } as const
+
+describe('applyTaskChanges', () => {
+  test('completes a task and adds the done date in the configured format', () => {
+    expect(applyTaskChanges('- [ ] Ship it', { status: 'done' }, emojiOptions)).toBe(
+      '- [x] Ship it ✅ 2026-10-31',
+    )
+    expect(applyTaskChanges('- [ ] Ship it', { status: 'done' }, dataviewOptions)).toBe(
+      '- [x] Ship it [completion:: 2026-10-31]',
+    )
+  })
+
+  test('does not add a done date when the setting is off', () => {
+    expect(
+      applyTaskChanges('- [ ] Ship it', { status: 'done' }, { ...emojiOptions, setDoneDate: false }),
+    ).toBe('- [x] Ship it')
+  })
+
+  test('reopens a task and removes its done date in the original format', () => {
+    expect(
+      applyTaskChanges('\t- [x] Ship it [completion:: 2025-07-27] ^abc', { status: 'todo' }, emojiOptions),
+    ).toBe('\t- [ ] Ship it ^abc')
+    expect(applyTaskChanges('- [x] Ship it ✅ 2024-01-28', { status: 'in_progress' }, emojiOptions)).toBe(
+      '- [/] Ship it',
+    )
+  })
+
+  test('cancels a task with a cancelled date', () => {
+    expect(applyTaskChanges('- [ ] Plan', { status: 'cancelled' }, emojiOptions)).toBe(
+      '- [-] Plan ❌ 2026-10-31',
+    )
+  })
+
+  test('keeps an unknown status symbol when the status does not change', () => {
+    expect(applyTaskChanges('- [>] Later', { status: 'todo', priority: 'high' }, emojiOptions)).toBe(
+      '- [>] Later ⏫',
+    )
+  })
+
+  test('replaces existing metadata in place and keeps its format', () => {
+    expect(
+      applyTaskChanges(
+        '- [ ] Call 📅 2026-01-01 #work [priority:: low]',
+        { dueDate: '2026-02-02', priority: 'high' },
+        emojiOptions,
+      ),
+    ).toBe('- [ ] Call 📅 2026-02-02 #work [priority:: high]')
+  })
+
+  test('removes metadata when the value is cleared', () => {
+    expect(
+      applyTaskChanges(
+        '- [ ] Call ⏫ 📅 2026-01-01 #work',
+        { dueDate: null, priority: 'normal' },
+        emojiOptions,
+      ),
+    ).toBe('- [ ] Call #work')
+  })
+
+  test('appends new metadata before a block id', () => {
+    expect(
+      applyTaskChanges('- [ ] Call ^block-1', { scheduledDate: '2026-11-05' }, dataviewOptions),
+    ).toBe('- [ ] Call [scheduled:: 2026-11-05] ^block-1')
+  })
+
+  test('changes the description and keeps metadata and the block id', () => {
+    expect(
+      applyTaskChanges(
+        '  - [ ] Old [id:: 7] 📅 2026-01-01 text ^b1',
+        { description: '  New   title #tag [id:: 7] ' },
+        emojiOptions,
+      ),
+    ).toBe('  - [ ] New title #tag [id:: 7] 📅 2026-01-01 ^b1')
+  })
+
+  test('removes duplicate metadata for one field', () => {
+    expect(
+      applyTaskChanges('- [ ] Two 📅 2026-01-01 [due:: 2026-01-02]', { dueDate: '2026-03-03' }, emojiOptions),
+    ).toBe('- [ ] Two 📅 2026-03-03')
+  })
+
+  test('leaves lines that are not tasks unchanged', () => {
+    expect(applyTaskChanges('Just text', { status: 'done' }, emojiOptions)).toBe('Just text')
+  })
+})
+
+describe('tags', () => {
+  const setTags = (line: string, tags: string[]): string => applyTaskChanges(line, { tags }, emojiOptions)
+
+  test('adds tags after the text and before the metadata', () => {
+    expect(setTags('- [ ] Buy milk 📅 2026-11-01 ^abc', ['home', 'errand'])).toBe(
+      '- [ ] Buy milk #home #errand 📅 2026-11-01 ^abc',
+    )
+    expect(setTags('- [ ] Buy milk #shop ⏫', ['shop', 'home'])).toBe('- [ ] Buy milk #shop #home ⏫')
+    expect(setTags('- [ ] Email admin [id:: 134]', ['type/task'])).toBe('- [ ] Email admin #type/task [id:: 134]')
+    expect(setTags('- [ ] Water 🔁 every week 📅 2026-11-01', ['garden'])).toBe(
+      '- [ ] Water #garden 🔁 every week 📅 2026-11-01',
+    )
+  })
+
+  test('adds tags to a task without text', () => {
+    expect(setTags('- [ ]', ['inbox'])).toBe('- [ ] #inbox')
+    expect(setTags('- [ ] 📅 2026-11-01', ['inbox'])).toBe('- [ ] #inbox 📅 2026-11-01')
+  })
+
+  test('removes tags wherever they are written', () => {
+    expect(setTags('- [ ] #work Call #ann about #plan 📅 2026-11-01', ['ann'])).toBe(
+      '- [ ] Call #ann about 📅 2026-11-01',
+    )
+    expect(setTags('- [ ] Call #a #b ^id', [])).toBe('- [ ] Call ^id')
+    expect(setTags('  - [x] #only', [])).toBe('  - [x]')
+  })
+
+  test('removes and adds tags in one change', () => {
+    expect(setTags('- [ ] Plan #old trip [due:: 2026-11-01]', ['new'])).toBe(
+      '- [ ] Plan trip #new [due:: 2026-11-01]',
+    )
+  })
+
+  test('keeps text that only looks like a tag', () => {
+    expect(setTags('- [ ] Fix #1 in [[#Heading]] and `#code` #bug', [])).toBe(
+      '- [ ] Fix #1 in [[#Heading]] and `#code`',
+    )
+    expect(setTags('- [ ] Plan #work/project', ['work'])).toBe('- [ ] Plan #work')
+  })
+
+  test('changes nothing when the tags are the same', () => {
+    expect(setTags('- [ ] Call  #a   now', ['a'])).toBe('- [ ] Call  #a   now')
+  })
+})
+
+describe('createTaskLine', () => {
+  test('creates a task line with metadata', () => {
+    expect(
+      createTaskLine(' Write  report ', { priority: 'medium', dueDate: '2026-11-03' }, {
+        ...dataviewOptions,
+        setCreatedDate: false,
+      }),
+    ).toBe('- [ ] Write report [priority:: medium] [due:: 2026-11-03]')
+  })
+
+  test('adds the created date when the setting is on', () => {
+    expect(createTaskLine('Call Ann', {}, { ...emojiOptions, setCreatedDate: true })).toBe(
+      '- [ ] Call Ann ➕ 2026-10-31',
+    )
+    expect(createTaskLine('Call Ann', {}, { ...dataviewOptions, setCreatedDate: true })).toBe(
+      '- [ ] Call Ann [created:: 2026-10-31]',
+    )
+  })
+})

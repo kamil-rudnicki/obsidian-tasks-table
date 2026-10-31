@@ -1,0 +1,178 @@
+/*
+ * Every rule in this file is scoped to `.tasks-table-scope` at build time
+ * (see build/scopeCss.mjs), so Tailwind's reset and utilities never touch
+ * Obsidian's own interface. Colors follow the active Obsidian theme.
+ */
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@source "../";
+
+@custom-variant dark (&:is(.theme-dark *));
+
+:root {
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --radius: 0.625rem;
+  --background: var(--background-primary);
+  --foreground: var(--text-normal);
+  --card: var(--background-primary);
+  --card-foreground: var(--text-normal);
+  --popover: var(--background-primary);
+  --popover-foreground: var(--text-normal);
+  /* Obsidian gives primary actions and selection the accent color. */
+  --primary: var(--interactive-accent);
+  --primary-foreground: var(--text-on-accent);
+  --secondary: var(--background-modifier-hover);
+  --secondary-foreground: var(--text-normal);
+  /* Opaque: pinned cells use it and must hide the cells scrolling under them. */
+  --muted: var(--background-secondary);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--background-modifier-hover);
+  --accent-foreground: var(--text-normal);
+  --destructive: var(--text-error);
+  --destructive-foreground: var(--text-error);
+  --border: var(--background-modifier-border);
+  --input: var(--background-modifier-border);
+  --ring: var(--background-modifier-border-focus);
+  --success: var(--color-green);
+  --success-foreground: var(--color-green);
+  --info: var(--color-purple);
+  --info-foreground: var(--color-purple);
+  --warning: var(--color-yellow);
+  --warning-foreground: var(--color-yellow);
+  --invert: var(--text-normal);
+  --invert-foreground: var(--background-primary);
+  --priority-highest: var(--color-red);
+  --priority-high: var(--color-orange);
+  --priority-medium: var(--color-yellow);
+  --priority-low: var(--color-blue);
+  --priority-lowest: var(--text-faint);
+  --status-in-progress: var(--color-yellow);
+  --status-done: var(--color-green);
+  --link: var(--link-color);
+  --link-hover: var(--link-color-hover);
+  --active: var(--text-accent);
+  --active-surface: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  --checkbox: var(--checkbox-color);
+  --checkbox-foreground: var(--checkbox-marker-color);
+  --overlay: var(--background-modifier-cover);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-invert: var(--invert);
+  --color-invert-foreground: var(--invert-foreground);
+  --color-priority-highest: var(--priority-highest);
+  --color-priority-high: var(--priority-high);
+  --color-priority-medium: var(--priority-medium);
+  --color-priority-low: var(--priority-low);
+  --color-priority-lowest: var(--priority-lowest);
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-done: var(--status-done);
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+  --color-active: var(--active);
+  --color-active-surface: var(--active-surface);
+  --color-checkbox: var(--checkbox);
+  --color-checkbox-foreground: var(--checkbox-foreground);
+  --color-overlay: var(--overlay);
+  --font-sans: var(--font-interface);
+  --font-heading: var(--font-interface);
+  --font-mono: var(--font-monospace);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply bg-background font-sans text-foreground;
+  }
+}
+
+/*
+ * The grid draws its own scrollbars. Give their thumbs Obsidian's scrollbar
+ * color; the default border color is almost invisible on the background.
+ */
+[data-slot='data-grid-thumb'],
+[data-slot='data-grid-scroll-area'] + [aria-hidden='true'] .bg-border {
+  background-color: var(--scrollbar-thumb-bg);
+}
+
+/*
+ * Each tag takes one of Obsidian's accent colors, picked from its name (see
+ * tagLogic.ts). Its text mixes the accent with the normal text color: light
+ * themes need more of the text color to keep a contrast of at least 4.5:1.
+ */
+[data-tag-color] {
+  --tag-foreground: color-mix(in srgb, var(--tag-accent) 50%, var(--text-normal));
+}
+[data-tag-color]:is(.theme-dark *) {
+  --tag-foreground: color-mix(in srgb, var(--tag-accent) 70%, var(--text-normal));
+}
+[data-tag-color='red'] {
+  --tag-accent: var(--color-red);
+}
+[data-tag-color='orange'] {
+  --tag-accent: var(--color-orange);
+}
+[data-tag-color='yellow'] {
+  --tag-accent: var(--color-yellow);
+}
+[data-tag-color='green'] {
+  --tag-accent: var(--color-green);
+}
+[data-tag-color='cyan'] {
+  --tag-accent: var(--color-cyan);
+}
+[data-tag-color='blue'] {
+  --tag-accent: var(--color-blue);
+}
+[data-tag-color='purple'] {
+  --tag-accent: var(--color-purple);
+}
+[data-tag-color='pink'] {
+  --tag-accent: var(--color-pink);
+}
+
+/* Field names such as "followup-task-id" stay on one line in the Properties menu. */
+[data-slot='dropdown-menu-checkbox-item'] {
+  white-space: nowrap;
+}

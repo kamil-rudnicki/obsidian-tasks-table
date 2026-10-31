@@ -3,17 +3,31 @@
 		"inlineSourceMap": true,
 		"inlineSources": true,
 		"module": "ESNext",
-		"target": "ES2021",
+		"target": "ES2022",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"jsx": "react-jsx",
 		"strict": true,
-		"noImplicitReturns": true,
 		"noFallthroughCasesInSwitch": true,
-		"noUncheckedIndexedAccess": true,
-		"moduleResolution": "node",
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"moduleResolution": "bundler",
 		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
 		"allowSyntheticDefaultImports": true,
-		"lib": ["ES2021", "DOM"]
+		"allowJs": true,
+		"paths": {
+			"@/*": ["./src/ui/*"],
+			"@shared/*": ["./src/shared/*"]
+		}
 	},
-	"include": ["src/**/*.ts"]
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.tsx",
+		"scripts/**/*.mjs",
+		"e2e/**/*.mjs",
+		"testing/**/*.ts",
+		"vitest.config.ts"
+	]
 }

@@ -1,0 +1,21 @@
+/* Unscoped rules for the Obsidian elements that host the plugin's React roots. */
+
+.workspace-leaf-content[data-type='tasks-table'] > .view-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.tasks-table-mount {
+  height: 100%;
+  min-height: 0;
+}
+
+/* Popups of the tasks table: positioned against the window, above the workspace. */
+.tasks-table-portal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: var(--layer-menu);
+}

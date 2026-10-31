@@ -1,5 +1,14 @@
 # Obsidian community plugin
 
+## This plugin: Tasks Table
+
+- A Bases-style table of every task in the vault. See `README.md` → **How it is built** for the module layout.
+- UI: React, shadcn/ui on Base UI, ReUI data grid and filters, Tailwind CSS, TanStack Table, Query and Store. Code style in `src`: two spaces, single quotes, no semicolons, named exports, types instead of interfaces.
+- Styles: every Tailwind rule is scoped to `.tasks-table-scope` at build time (`scripts/scopeCss.mjs`). Use Obsidian CSS variables through the tokens in `src/ui/styles/app.css`; do not hard-code colors.
+- Popups render into the scoped portal container from `src/ui/lib/portalContainer.ts`; new shadcn components with a `Portal` need `container={usePortalContainer()}`.
+- Data: settings and views live in SQLite (`src/database`); tasks are never stored, only indexed in memory from the notes.
+- Checks: `npm run build`, `npm run lint`, `npm test`, and `npm run test:e2e` (drives a real Obsidian with a fixture vault).
+
 ## Project overview
 
 - Target: Obsidian Community Plugin (TypeScript → bundled JavaScript).

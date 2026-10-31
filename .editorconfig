@@ -9,3 +9,12 @@ indent_style = tab
 indent_size = 4
 quote_type = single
 tab_width = 4
+
+# The plugin's source follows the React template style: two spaces, no semicolons.
+[{src,scripts,e2e,testing}/**.{ts,tsx,mjs,css}]
+indent_style = space
+indent_size = 2
+
+[vitest.config.ts]
+indent_style = space
+indent_size = 2

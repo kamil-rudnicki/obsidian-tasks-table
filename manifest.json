@@ -1,11 +1,9 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
-	"minAppVersion": "1.0.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"id": "tasks-table",
+	"name": "Tasks Table",
+	"version": "0.1.0",
+	"minAppVersion": "1.13.0",
+	"description": "See the tasks of every note in one table with saved views, filters, sorting and properties.",
+	"author": "Kamil Rudnicki",
 	"isDesktopOnly": false
 }

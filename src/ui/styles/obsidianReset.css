@@ -1,0 +1,10 @@
+/*
+ * Obsidian styles these elements app-wide (buttons get a height, shadow and
+ * background, inputs a border and padding). `revert` drops every author style
+ * on them, then Tailwind's reset and utilities, which are more specific, style
+ * them again. The build scopes this rule and puts it before Tailwind's reset.
+ * SVG is left out: `revert` would also drop the icons' stroke attributes.
+ */
+:where(button, input, select, textarea, a, kbd, label, table, thead, tbody, tfoot, tr, th, td, ul, ol, li, p, h1, h2, h3, h4, h5, h6, img, hr) {
+  all: revert;
+}
