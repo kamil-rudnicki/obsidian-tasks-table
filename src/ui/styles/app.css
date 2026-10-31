@@ -11,13 +11,14 @@
 
 @custom-variant dark (&:is(.theme-dark *));
 
+/*
+ * Text renders as in Obsidian, which leaves font smoothing to the system:
+ * `antialiased` would draw thinner, lighter text on macOS than in the notes.
+ */
 :root {
   line-height: 1.5;
   font-weight: 400;
-  font-synthesis: none;
   text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   --radius: 0.625rem;
   --background: var(--background-primary);
   --foreground: var(--text-normal);
@@ -113,8 +114,9 @@
   --color-checkbox: var(--checkbox);
   --color-checkbox-foreground: var(--checkbox-foreground);
   --color-overlay: var(--overlay);
-  --font-sans: var(--font-interface);
-  --font-heading: var(--font-interface);
+  /* Tasks read as in the notes they come from: the theme's text font, not its interface font. */
+  --font-sans: var(--font-text);
+  --font-heading: var(--font-text);
   --font-mono: var(--font-monospace);
 }
 

@@ -59,9 +59,12 @@ import { getColumnOrder, getColumnVisibility } from '@/logic/fieldColumnsLogic'
 import {
   getCollapsedGroups,
   getExpandedGroups,
+  getGroupedOrder,
   getGroupKey,
-  groupColumnId,
-  groupTasks,
+  getGroupRowIds,
+  groupColumnIds,
+  isGroupColumnId,
+  nestGroups,
 } from '@/logic/groupingLogic'
 import { updateTask } from '@/logic/taskActions'
 import { columnLabels } from '@/logic/taskLabels'
@@ -210,8 +213,8 @@ const createFieldColumn = (key: string): ColumnDef<DataGridFeatures, Task> => ({
 })
 
 // The hidden column the rows are grouped by; each group's header renders in its place.
-const createGroupColumn = (field: TaskGroupField): ColumnDef<DataGridFeatures, Task> => ({
-  id: groupColumnId,
+const createGroupColumn = (field: TaskGroupField, level: number): ColumnDef<DataGridFeatures, Task> => ({
+  id: groupColumnIds[level],
   accessorFn: (task) => getGroupKey(task, field),
   header: () => null,
   cell: () => null,
@@ -221,9 +224,9 @@ const createGroupColumn = (field: TaskGroupField): ColumnDef<DataGridFeatures, T
   meta: { headerTitle: 'Group' },
 })
 
-// The group column is never shown, so the view does not save it.
-const withoutGroupColumn = <Value,>(state: Record<string, Value>): Record<string, Value> =>
-  Object.fromEntries(Object.entries(state).filter(([columnId]) => columnId !== groupColumnId))
+// The group columns are never shown, so the view does not save them.
+const withoutGroupColumns = <Value,>(state: Record<string, Value>): Record<string, Value> =>
+  Object.fromEntries(Object.entries(state).filter(([columnId]) => !isGroupColumnId(columnId)))
 
 // Sentence case and the words this table uses, like "properties" for columns.
 const dataGridI18n: DataGridI18nOverrides = {
@@ -262,7 +265,8 @@ const handleCellsChange = ({ changes }: DataGridCellsChangeDetails<Task>): void 
 export const TasksTable = ({ view, tasks, fieldKeys, isLoading, emptyMessage, toolbar }: TasksTableProps) => {
   const { config } = view
   const { grouping, collapsedGroups } = config
-  const groupField = grouping?.field ?? null
+  // The columns change only when the grouped properties do, not their order.
+  const groupFieldsKey = grouping.map((level) => level.field).join('\n')
   // TanStack Table rebuilds its models when `columns` changes identity; `fieldKeys`
   // keeps its identity until the vault's field names change.
   const columns = useMemo(
@@ -270,23 +274,25 @@ export const TasksTable = ({ view, tasks, fieldKeys, isLoading, emptyMessage, to
       ...builtInColumns.slice(0, -1),
       ...fieldKeys.map(createFieldColumn),
       ...builtInColumns.slice(-1),
-      ...(groupField === null ? [] : [createGroupColumn(groupField)]),
+      ...(groupFieldsKey === ''
+        ? []
+        : groupFieldsKey.split('\n').map((field, level) => createGroupColumn(field as TaskGroupField, level))),
     ],
-    [fieldKeys, groupField],
+    [fieldKeys, groupFieldsKey],
   )
   // TanStack lists groups in the order their first rows come, so the rows
   // arrive in group order, each group keeping the view's sort.
-  const groups = useMemo(() => (grouping ? groupTasks(tasks, grouping) : null), [tasks, grouping])
-  const data = useMemo(() => (groups ? groups.flatMap((group) => group.tasks) : tasks), [groups, tasks])
-  const groupKeys = groups?.map((group) => group.key) ?? []
-  const expanded = getExpandedGroups(groupKeys, collapsedGroups)
+  const groups = useMemo(() => (grouping.length > 0 ? nestGroups(tasks, grouping) : null), [tasks, grouping])
+  const data = useMemo(() => (groups ? getGroupedOrder(groups) : tasks), [groups, tasks])
+  const groupRowIds = groups ? getGroupRowIds(groups) : []
+  const expanded = getExpandedGroups(groupRowIds, collapsedGroups)
   const columnVisibility = {
     ...getColumnVisibility(config.columnVisibility, fieldKeys),
-    [groupColumnId]: false,
+    ...Object.fromEntries(groupColumnIds.map((columnId) => [columnId, false])),
   }
   const columnOrder = getColumnOrder(
     config.columnOrder,
-    columns.map((column) => column.id ?? '').filter((columnId) => columnId !== groupColumnId),
+    columns.map((column) => column.id ?? '').filter((columnId) => !isGroupColumnId(columnId)),
   )
   const table = useTable({
     features: dataGridFeatures,
@@ -298,7 +304,7 @@ export const TasksTable = ({ view, tasks, fieldKeys, isLoading, emptyMessage, to
       columnVisibility,
       columnOrder,
       columnSizing: config.columnSizing,
-      grouping: groupField === null ? [] : [groupColumnId],
+      grouping: groupColumnIds.slice(0, grouping.length),
       expanded,
     },
     // Grouped rows keep the columns in place, and a change of tasks keeps the collapsed groups.
@@ -308,7 +314,7 @@ export const TasksTable = ({ view, tasks, fieldKeys, isLoading, emptyMessage, to
     enableCellSelection: (cell) => !cell.row.getIsGrouped(),
     onExpandedChange: (updater) =>
       updateViewConfig(view.id, {
-        collapsedGroups: getCollapsedGroups(resolve<ExpandedState>(updater, expanded), groupKeys, collapsedGroups),
+        collapsedGroups: getCollapsedGroups(resolve<ExpandedState>(updater, expanded), groupRowIds, collapsedGroups),
       }),
     // The task index sorts and filters; the table shows every row it returns, virtualized.
     manualSorting: true,
@@ -320,11 +326,11 @@ export const TasksTable = ({ view, tasks, fieldKeys, isLoading, emptyMessage, to
       updateViewConfig(view.id, { sorting: toTaskSorting(resolve(updater, config.sorting)) }),
     onColumnVisibilityChange: (updater) =>
       updateViewConfig(view.id, {
-        columnVisibility: withoutGroupColumn(resolve<ColumnVisibilityState>(updater, columnVisibility)),
+        columnVisibility: withoutGroupColumns(resolve<ColumnVisibilityState>(updater, columnVisibility)),
       }),
     onColumnOrderChange: (updater) =>
       updateViewConfig(view.id, {
-        columnOrder: resolve<ColumnOrderState>(updater, columnOrder).filter((columnId) => columnId !== groupColumnId),
+        columnOrder: resolve<ColumnOrderState>(updater, columnOrder).filter((columnId) => !isGroupColumnId(columnId)),
       }),
     onColumnSizingChange: (updater) =>
       updateViewConfig(view.id, {
@@ -341,7 +347,9 @@ export const TasksTable = ({ view, tasks, fieldKeys, isLoading, emptyMessage, to
       emptyMessage={emptyMessage}
       i18n={dataGridI18n}
       onCellsChange={handleCellsChange}
-      renderGroupRow={groupField === null ? undefined : (row) => <TaskGroupRow row={row} field={groupField} />}
+      renderGroupRow={
+        grouping.length === 0 ? undefined : (row) => <TaskGroupRow row={row} field={grouping[row.depth].field} />
+      }
       tableLayout={{
         dense: true,
         headerSticky: true,

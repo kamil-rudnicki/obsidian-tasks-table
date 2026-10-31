@@ -17,9 +17,16 @@ import {
   statusLabels,
 } from '@/logic/taskLabels'
 
-// The hidden column the table groups its rows by, and the id TanStack gives each group's row.
-export const groupColumnId = 'group'
-export const getGroupRowId = (key: string): string => `${groupColumnId}:${key}`
+// The hidden columns the table groups its rows by, one per level.
+export const groupColumnIds = ['group', 'subgroup'] as const
+
+export const isGroupColumnId = (columnId: string): boolean => (groupColumnIds as readonly string[]).includes(columnId)
+
+// The id TanStack gives a group's row: its value at each level, such as `group:todo>subgroup:high`.
+export const getGroupRowId = (keys: string[]): string =>
+  keys.map((key, level) => `${groupColumnIds[level]}:${key}`).join('>')
+
+const getGroupRowLevels = (id: string): number => (id.includes(`>${groupColumnIds[1]}:`) ? 2 : 1)
 
 // The value a task is grouped by, or '' when it has none.
 export const getGroupKey = (task: Task, field: TaskGroupField): string => {
@@ -92,22 +99,57 @@ export const groupTasks = (tasks: Task[], { field, desc }: TaskGrouping): TaskGr
     .map(({ key, tasks: groupTasks }) => ({ key, tasks: groupTasks }))
 }
 
+export type NestedTaskGroup = { id: string; tasks: Task[]; subgroups: NestedTaskGroup[] }
+
+// Groups for the first level, each with its groups for the next level.
+export const nestGroups = (tasks: Task[], groupings: TaskGrouping[], parentKeys: string[] = []): NestedTaskGroup[] => {
+  const [grouping, ...nextGroupings] = groupings
+  if (!grouping) {
+    return []
+  }
+  return groupTasks(tasks, grouping).map((group) => {
+    const keys = [...parentKeys, group.key]
+    return { id: getGroupRowId(keys), tasks: group.tasks, subgroups: nestGroups(group.tasks, nextGroupings, keys) }
+  })
+}
+
+// TanStack lists groups in the order their first rows come, so the rows go in group order.
+export const getGroupedOrder = (groups: NestedTaskGroup[]): Task[] =>
+  groups.flatMap((group) => (group.subgroups.length > 0 ? getGroupedOrder(group.subgroups) : group.tasks))
+
+export const getGroupRowIds = (groups: NestedTaskGroup[]): string[] =>
+  groups.flatMap((group) => [group.id, ...getGroupRowIds(group.subgroups)])
+
 // TanStack's expanded state: every group is open except the collapsed ones.
-export const getExpandedGroups = (keys: string[], collapsed: string[]): Record<string, boolean> =>
-  Object.fromEntries(keys.map((key) => [getGroupRowId(key), !collapsed.includes(key)]))
+export const getExpandedGroups = (ids: string[], collapsed: string[]): Record<string, boolean> =>
+  Object.fromEntries(ids.map((id) => [id, !collapsed.includes(id)]))
 
 // The collapsed groups after an expand or collapse. Groups that the filters
 // hide at the moment keep their state for when they come back.
 export const getCollapsedGroups = (
   expanded: boolean | Record<string, boolean>,
-  keys: string[],
+  ids: string[],
   previous: string[],
 ): string[] => {
-  const hidden = previous.filter((key) => !keys.includes(key))
+  const hidden = previous.filter((id) => !ids.includes(id) && id.startsWith(`${groupColumnIds[0]}:`))
   if (typeof expanded === 'boolean') {
-    return expanded ? hidden : [...hidden, ...keys]
+    return expanded ? hidden : [...hidden, ...ids]
   }
-  return [...hidden, ...keys.filter((key) => !expanded[getGroupRowId(key)])]
+  return [...hidden, ...ids.filter((id) => !expanded[id])]
+}
+
+// The collapsed groups that still mean the same after the grouping changes:
+// those of the levels that kept their property.
+export const keepCollapsedGroups = (
+  collapsed: string[],
+  previous: TaskGrouping[],
+  next: TaskGrouping[],
+): string[] => {
+  let sameLevels = 0
+  while (sameLevels < Math.min(previous.length, next.length) && previous[sameLevels].field === next[sameLevels].field) {
+    sameLevels += 1
+  }
+  return collapsed.filter((id) => getGroupRowLevels(id) <= sameLevels)
 }
 
 export const getGroupFieldLabel = (field: TaskGroupField): string =>

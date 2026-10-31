@@ -193,7 +193,17 @@ try {
   await step('filters first-level tasks and subtasks', async () => {
     const resultCount = async () =>
       Number((await root.getByText(/^\d[\d,]* results?$/u).first().textContent()).replace(/\D/gu, ''))
-    const allCount = await resultCount()
+    // From the index: the count on screen can still show the previous step's filter.
+    const allCount = await page.evaluate(
+      async () =>
+        (
+          await window.app.plugins.plugins['tasks-table'].services.invoke('tasks:list', {
+            filters: [],
+            sorting: [],
+            search: '',
+          })
+        ).length,
+    )
     // "Book venue" is the only subtask in the fixture vault.
     await addFilter('Level', 'Subtask')
     await root.getByText('1 result', { exact: true }).waitFor()
@@ -291,13 +301,14 @@ try {
     await toggleProperties()
   })
 
-  await step('groups tasks and closes a group', async () => {
-    const groupHeaders = root.locator('[data-slot=data-grid-group-row] button')
+  await step('groups tasks in two levels and closes a group', async () => {
+    const groupHeaders = root.locator('[data-slot=data-grid-group-row]')
+    const groupName = (index) => groupHeaders.nth(index).getByRole('button')
     const savedGrouping = () =>
       page.evaluate(async () => {
         const views = await window.app.plugins.plugins['tasks-table'].services.invoke('views:list', null)
         const { grouping, collapsedGroups } = views.find((view) => view.name === 'All tasks').config
-        return `${grouping?.field} ${collapsedGroups.join()}`
+        return `${grouping.map((level) => level.field).join()} ${collapsedGroups.join()}`
       })
     await root.getByRole('button', { name: 'Group', exact: true }).click()
     await page.getByRole('combobox', { name: 'Group property' }).click()
@@ -305,19 +316,36 @@ try {
     await page.keyboard.press('Escape')
     await groupHeaders.first().waitFor()
     assert.match(await groupHeaders.first().textContent(), /^StatusIn progress\d+$/u)
+    // Only the name opens and closes a group, not the rest of its header.
+    await groupHeaders.first().click({ position: { x: 600, y: 18 } })
+    assert.equal(await groupName(0).getAttribute('aria-expanded'), 'true')
     // A closed group hides its tasks, so the next group's header follows it.
-    await groupHeaders.first().click()
+    await groupName(0).click()
     await waitFor(
       async () => (await groupHeaders.nth(1).textContent())?.startsWith('StatusTo do'),
       'The group did not close.',
     )
-    assert.equal(await groupHeaders.first().getAttribute('aria-expanded'), 'false')
-    await waitFor(async () => (await savedGrouping()) === 'status in_progress', 'The view did not save the group.')
+    assert.equal(await groupName(0).getAttribute('aria-expanded'), 'false')
+    await waitFor(async () => (await savedGrouping()) === 'status group:in_progress', 'The view did not save the group.')
+    // A second level groups each group again; the closed group stays closed.
     await root.getByRole('button', { name: 'Group', exact: true }).click()
-    await page.getByRole('button', { name: 'Remove group' }).click()
+    await page.getByRole('button', { name: 'Add subgroup' }).click()
+    await page.keyboard.press('Escape')
+    await waitFor(
+      async () => (await groupHeaders.nth(2).textContent())?.startsWith('PriorityHigh'),
+      'The groups were not grouped by priority.',
+    )
+    assert.match(await groupHeaders.nth(1).textContent(), /^StatusTo do\d+$/u)
+    await waitFor(
+      async () => (await savedGrouping()) === 'status,priority group:in_progress',
+      'The view did not save the second level.',
+    )
+    await root.getByRole('button', { name: 'Group', exact: true }).click()
+    await page.getByRole('button', { name: 'Remove group by Priority' }).click()
+    await page.getByRole('button', { name: 'Remove group by Status' }).click()
     await page.keyboard.press('Escape')
     await waitFor(async () => (await groupHeaders.count()) === 0, 'The groups did not go away.')
-    await waitFor(async () => (await savedGrouping()) === 'undefined ', 'The view did not save the removal.')
+    await waitFor(async () => (await savedGrouping()) === ' ', 'The view did not save the removal.')
   })
 
   await step('adds a filter and a sort', async () => {

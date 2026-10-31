@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'vitest'
 import type { Task } from '@shared/taskTypes'
-import { getCollapsedGroups, getExpandedGroups, getGroupLabel, groupTasks } from './groupingLogic'
+import {
+  getCollapsedGroups,
+  getExpandedGroups,
+  getGroupedOrder,
+  getGroupLabel,
+  getGroupRowIds,
+  groupTasks,
+  keepCollapsedGroups,
+  nestGroups,
+} from './groupingLogic'
 
 const createTask = (id: string, changes: Partial<Task> = {}): Task => ({
   id,
@@ -80,19 +89,69 @@ describe('groupTasks', () => {
   })
 })
 
-describe('collapsed groups', () => {
-  test('opens every group except the collapsed ones', () => {
-    expect(getExpandedGroups(['todo', 'done'], ['done'])).toEqual({ 'group:todo': true, 'group:done': false })
+describe('nested groups', () => {
+  const tasks = [
+    createTask('a', { status: 'done', priority: 'high' }),
+    createTask('b', { priority: 'low' }),
+    createTask('c', { priority: 'high' }),
+    createTask('d', { status: 'done', priority: 'low' }),
+  ]
+  const groups = nestGroups(tasks, [
+    { field: 'status', desc: false },
+    { field: 'priority', desc: true },
+  ])
+
+  test('groups each group again by the second property', () => {
+    expect(getGroupRowIds(groups)).toEqual([
+      'group:todo',
+      'group:todo>subgroup:high',
+      'group:todo>subgroup:low',
+      'group:done',
+      'group:done>subgroup:high',
+      'group:done>subgroup:low',
+    ])
+    expect(getGroupedOrder(groups).map((task) => task.id)).toEqual(['c', 'b', 'a', 'd'])
   })
 
-  test('keeps the state of groups the filters hide', () => {
-    const keys = ['todo', 'done']
-    expect(getCollapsedGroups({ 'group:todo': false, 'group:done': true }, keys, ['cancelled'])).toEqual([
-      'cancelled',
-      'todo',
+  test('keeps one level when there is no second property', () => {
+    const single = nestGroups(tasks, [{ field: 'status', desc: false }])
+    expect(getGroupRowIds(single)).toEqual(['group:todo', 'group:done'])
+    expect(getGroupedOrder(single).map((task) => task.id)).toEqual(['b', 'c', 'a', 'd'])
+  })
+})
+
+describe('collapsed groups', () => {
+  const ids = ['group:todo', 'group:todo>subgroup:high', 'group:done']
+
+  test('opens every group except the collapsed ones', () => {
+    expect(getExpandedGroups(ids, ['group:done'])).toEqual({
+      'group:todo': true,
+      'group:todo>subgroup:high': true,
+      'group:done': false,
+    })
+  })
+
+  test('keeps the state of groups the filters hide and drops values saved before nesting', () => {
+    expect(
+      getCollapsedGroups(
+        { 'group:todo': true, 'group:todo>subgroup:high': false, 'group:done': true },
+        ids,
+        ['group:cancelled', 'in_progress'],
+      ),
+    ).toEqual(['group:cancelled', 'group:todo>subgroup:high'])
+    expect(getCollapsedGroups(true, ids, ['group:cancelled', 'group:done'])).toEqual(['group:cancelled'])
+    expect(getCollapsedGroups(false, ids, [])).toEqual(ids)
+  })
+
+  test('keeps the collapsed groups of the levels that keep their property', () => {
+    const collapsed = ['group:todo', 'group:todo>subgroup:high']
+    const status = { field: 'status', desc: false } as const
+    const priority = { field: 'priority', desc: true } as const
+    expect(keepCollapsedGroups(collapsed, [status, priority], [{ ...status, desc: true }, priority])).toEqual(collapsed)
+    expect(keepCollapsedGroups(collapsed, [status, priority], [status, { field: 'tags', desc: false }])).toEqual([
+      'group:todo',
     ])
-    expect(getCollapsedGroups(true, keys, ['cancelled', 'done'])).toEqual(['cancelled'])
-    expect(getCollapsedGroups(false, keys, [])).toEqual(['todo', 'done'])
+    expect(keepCollapsedGroups(collapsed, [status], [priority])).toEqual([])
   })
 })
 

@@ -9,7 +9,7 @@ Tasks Table shows the tasks from every note in your vault in one table, in the s
 - Saved views with filters, sorting, visible properties, column order and widths. Views save as you change them, like Bases.
 - **Sort**: several sort rules, reordered by dragging. Tags sort by the first tag, then the next ones; numbers in fields sort as numbers.
 - **Filter**: status, priority, dates (overdue, today, next 7 days and more), tags (nested tags match), note, folder and daily note (tasks from any daily note, or from today's, yesterday's or the last 7 days' notes). Daily notes are the notes in the Daily notes folder whose names match its date format. **Level** keeps first-level tasks or subtasks, which are tasks inside another list item (a task or a bullet).
-- **Group**: group the rows by status, priority, a date, tags, note, folder, level or a Dataview field, in either order. Each group has a header with its count; select it to close or open the group. Views keep the grouping and the closed groups. Tasks keep the view's sort inside their group.
+- **Group**: group the rows by status, priority, a date, tags, note, folder, level or a Dataview field, in either order, and optionally group each group again by a second property (**Add subgroup**). Each group has a header with its number of tasks; select it to close or open the group. Views keep the grouping and the closed groups. Tasks keep the view's sort inside their group.
 - **Properties**: show, hide, move and resize columns.
 - Dataview inline fields: every `[key:: value]` in your tasks, such as `[projekt:: Website]` or `[estimate:: 3]`, is a property you can show as a column, filter by (is, is not, is empty, is not empty, with the values your tasks use) and sort by. Field columns start hidden. Fields with columns of their own (`due`, `scheduled`, `start`, `created`, `completion`, `cancelled`, `priority`) stay in those columns, and `(key:: value)` fields, which Dataview shows without their key, are not included.
 - **Search** across task text and note names.
@@ -18,7 +18,7 @@ Tasks Table shows the tasks from every note in your vault in one table, in the s
 - Tags: each tag has its own color, one of the theme's accent colors, picked from its name. Select a Tags cell to add or remove tags: search the vault's tags (listed by name), or type a new name and press <kbd>Enter</kbd> (spaces become dashes). The note changes once, when you close the editor. New tags go after the task text, before its dates and fields; removed tags are taken out wherever they are in the text.
 - Changing a start date moves the task, with its subtasks and notes, to that day's daily note. The daily note is created from the Daily notes template when it does not exist. The task is added there first and removed from its old note after that, so a failed write never loses it.
 - Select a note name to open the note at the task's line. <kbd>Mod</kbd>-select opens it to the right.
-- Follows the Obsidian theme: colors, accent, fonts and light or dark mode.
+- Follows the Obsidian theme: colors, accent, light or dark mode, and the text font of your notes.
 
 Open the table with the ribbon icon or the **Tasks Table: Open table** command. The plugin also adds **Add task** and **Rebuild task index** commands.
 

@@ -41,7 +41,7 @@ export const createDefaultViewConfig = (
   ),
   columnOrder: [...taskColumnIds],
   columnSizing: {},
-  grouping: null,
+  grouping: [],
   collapsedGroups: [],
   ...overrides,
 })
