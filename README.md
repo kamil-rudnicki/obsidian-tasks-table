@@ -2,6 +2,8 @@
 
 Tasks Table shows the tasks from every note in your vault in one table, in the style of Obsidian Bases. Tasks stay in their notes; the table reads them and writes your edits back to the Markdown.
 
+![The Open view of Tasks Table: open tasks from several notes, with their status, priority, due date, tags and note](docs/screenshot.png)
+
 ## What it does
 
 - Indexes `- [ ]` tasks in every note, also in callouts and numbered lists. Fenced code and front matter are skipped.
@@ -49,9 +51,10 @@ npm run build      # type check and production build
 npm test           # unit tests (Vitest)
 npm run lint       # ESLint with the Obsidian rules
 npm run test:e2e   # build, then drive a real Obsidian through the main flows
+npm run screenshot # build, then take docs/screenshot.png from a demo vault
 ```
 
-`npm run test:e2e` starts a separate Obsidian (`/Applications/Obsidian.app` by default, override with `OBSIDIAN_PATH`) with a temporary profile and a generated fixture vault, so it never touches your own vaults. It copies the newest Obsidian app update from your profile, so the test runs the Obsidian version you use. It runs in the background: on macOS it starts Obsidian with `open -g`, and when Obsidian still takes the focus as it shows its window at start (Electron activates the app for each window it shows), it gives the focus back to the app you use within a moment. `npm run e2e:open` opens such an instance with a fixture vault and keeps it running (pass a vault path to use a copy of a vault instead; the plugin is installed into it; set `E2E_FOCUS=1` to work in it by hand); `PORT=9333 node e2e/cdp.mjs script.mjs` runs a Playwright script against it.
+`npm run test:e2e` starts a separate Obsidian (`/Applications/Obsidian.app` by default, override with `OBSIDIAN_PATH`) with a temporary profile and a generated fixture vault, so it never touches your own vaults. It copies the newest Obsidian app update from your profile, so the test runs the Obsidian version you use. It runs in the background: on macOS it starts Obsidian with `open -g`, and when Obsidian still takes the focus as it shows its window at start (Electron activates the app for each window it shows), it gives the focus back to the app you use within a moment. `npm run e2e:open` opens such an instance with a fixture vault and keeps it running (pass a vault path to use a copy of a vault instead; the plugin is installed into it; set `E2E_FOCUS=1` to work in it by hand); `PORT=9333 node e2e/cdp.mjs script.mjs` runs a Playwright script against it. `npm run screenshot` starts Obsidian the same way, with the demo vault from `e2e/fixtureVault.mjs` in the light theme.
 
 To try the plugin in a vault, copy or link `main.js`, `manifest.json` and `styles.css` to `<vault>/.obsidian/plugins/tasks-table/`.
 

@@ -76,6 +76,70 @@ export const createFixtureVault = async (vaultPath, { bulkTasks = 2000 } = {}) =
   }
 }
 
+// A small, tidy vault for the README screenshot, in the light theme.
+export const createDemoVault = async (vaultPath) => {
+  const config = path.join(vaultPath, '.obsidian')
+  await mkdir(config, { recursive: true })
+  await writeFile(path.join(config, 'appearance.json'), JSON.stringify({ theme: 'moonstone' }))
+  // Sync is on by default and shows a red "disconnected" icon without an account.
+  await writeFile(path.join(config, 'core-plugins.json'), JSON.stringify({ sync: false }))
+  await writeFile(path.join(config, 'daily-notes.json'), JSON.stringify({ folder: 'Daily', format: 'YYYY-MM-DD' }))
+
+  await write(vaultPath, 'Projects/Website relaunch.md', [
+    '# Website relaunch',
+    '',
+    `- [/] Rewrite the pricing page copy ⏫ 📅 ${addDays(0)} #work/marketing`,
+    `- [ ] Review homepage mockups with design 🔼 📅 ${addDays(1)} #work/design`,
+    `- [ ] Ship the new navigation to beta users ⏫ 📅 ${addDays(6)} #work`,
+    `\t- [ ] Write the beta announcement 📅 ${addDays(5)} #work/marketing`,
+    `- [ ] Set up redirects for the old blog URLs 📅 ${addDays(4)} #work`,
+    '- [ ] Fix contrast of the footer links 🔽 #work/design',
+    `- [x] Choose a font pairing ✅ ${addDays(-2)} #work/design`,
+    '',
+  ].join('\n'))
+  await write(vaultPath, 'Projects/Mobile app.md', [
+    '# Mobile app',
+    '',
+    `- [/] Fix the crash on login with an expired token 🔺 📅 ${addDays(-1)} #work/bug`,
+    `- [ ] Prepare App Store screenshots 🔼 📅 ${addDays(3)} #work/marketing`,
+    `- [ ] Write release notes for 2.4 📅 ${addDays(5)} #work`,
+    '- [ ] Test offline mode on Android 🔼 #work/qa',
+    '',
+  ].join('\n'))
+  await write(vaultPath, 'Areas/Home.md', [
+    '# Home',
+    '',
+    `- [ ] Renew the car insurance ⏫ 📅 ${addDays(2)} #finance`,
+    '- [ ] Book a plumber for the kitchen sink 🔼 #home',
+    `- [ ] Order a birthday gift for Mia 📅 ${addDays(8)} #people`,
+    '- [ ] Donate old clothes 🔽 #home',
+    '',
+  ].join('\n'))
+  await write(vaultPath, 'Areas/Health.md', [
+    '# Health',
+    '',
+    `- [ ] Refill the prescription ⏫ 📅 ${addDays(-2)} #health`,
+    `- [ ] Book a dentist appointment 🔼 📅 ${addDays(9)} #health`,
+    '- [ ] Run 5 km three times this week #health/fitness',
+    '',
+  ].join('\n'))
+  await write(vaultPath, `Daily/${addDays(-1)}.md`, [
+    `# ${addDays(-1)}`,
+    '',
+    `- [ ] Send the invoice to Northwind ⏫ 📅 ${addDays(0)} #finance`,
+    '- [ ] Reply to Anna about the offsite #people',
+    `- [x] Gym ✅ ${addDays(-1)} #health/fitness`,
+    '',
+  ].join('\n'))
+  await write(vaultPath, `Daily/${addDays(0)}.md`, [
+    `# ${addDays(0)}`,
+    '',
+    '- [ ] Call the bank about the card limit 🔼 #finance',
+    '- [ ] Read chapter 3 of Shape Up 🔽 #reading',
+    '',
+  ].join('\n'))
+}
+
 // Copies the freshly built plugin into the vault.
 export const installPlugin = async (vaultPath) => {
   const pluginPath = path.join(vaultPath, '.obsidian', 'plugins', 'tasks-table')
