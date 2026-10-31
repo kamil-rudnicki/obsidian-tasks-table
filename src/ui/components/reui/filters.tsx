@@ -266,10 +266,10 @@ function FilterInput<T = unknown>({
 
   useEffect(() => {
     if (props.autoFocus) {
-      const timer = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         inputRef.current?.focus()
       }, 300)
-      return () => clearTimeout(timer)
+      return () => window.clearTimeout(timer)
     }
   }, [props.autoFocus])
 
@@ -631,10 +631,10 @@ const fieldOptionCaches = new WeakMap<object, Map<unknown, FilterOption>>()
 const getFieldOptionCache = <T = unknown,>(
   field: FilterFieldConfig<T>
 ): Map<T, FilterOption<T>> => {
-  let cache = fieldOptionCaches.get(field as object)
+  let cache = fieldOptionCaches.get(field)
   if (!cache) {
     cache = new Map()
-    fieldOptionCaches.set(field as object, cache)
+    fieldOptionCaches.set(field, cache)
   }
   return cache as Map<T, FilterOption<T>>
 }
@@ -671,8 +671,8 @@ function useFieldOptions<T = unknown>(
   const [debouncedQuery, setDebouncedQuery] = useState(searchInput)
   useEffect(() => {
     if (!isAsync) return
-    const timer = setTimeout(() => setDebouncedQuery(searchInput), 250)
-    return () => clearTimeout(timer)
+    const timer = window.setTimeout(() => setDebouncedQuery(searchInput), 250)
+    return () => window.clearTimeout(timer)
   }, [searchInput, isAsync])
 
   const requestIdRef = useRef(0)
@@ -928,7 +928,7 @@ function SelectOptionsPopover<T = unknown>({
   const isMultiSelect =
     multiple ?? (field.type === "multiselect" || values.length > 1)
   const effectiveValues =
-    (field.value !== undefined ? (field.value as T[]) : values) || []
+    (field.value !== undefined ? field.value : values) || []
 
   // Static fields read their list verbatim (unchanged legacy behavior). Async
   // fields resolve selected values from the value->label cache and take the
@@ -971,7 +971,7 @@ function SelectOptionsPopover<T = unknown>({
   const toggleOption = (option: FilterOption<T>) => {
     const isSelected = effectiveValues.includes(option.value)
     const next = isSelected
-      ? (effectiveValues.filter((v) => v !== option.value) as T[])
+      ? effectiveValues.filter((v) => v !== option.value)
       : isMultiSelect
         ? ([...effectiveValues, option.value] as T[])
         : ([option.value] as T[])
@@ -1075,9 +1075,9 @@ function SelectOptionsPopover<T = unknown>({
                 e.preventDefault()
                 const option = allFilteredOptions[highlightedIndex]
                 if (option) {
-                  const isSelected = effectiveValues.includes(option.value as T)
+                  const isSelected = effectiveValues.includes(option.value)
                   const next = isSelected
-                    ? (effectiveValues.filter((v) => v !== option.value) as T[])
+                    ? effectiveValues.filter((v) => v !== option.value)
                     : isMultiSelect
                       ? ([...effectiveValues, option.value] as T[])
                       : ([option.value] as T[])
@@ -1177,7 +1177,7 @@ function SelectOptionsPopover<T = unknown>({
         setOpen(open)
         setHighlightedIndex(-1)
         if (!open) {
-          setTimeout(() => setSearchInput(""), 200)
+          window.setTimeout(() => setSearchInput(""), 200)
         }
       }}
     >
@@ -1515,7 +1515,7 @@ function FilterSubmenuContent<T = unknown>({
         onSelect={(e) => {
           if (isMultiSelect) e.preventDefault()
         }}
-        onCheckedChange={() => onToggle(option.value as T, isSelected)}
+        onCheckedChange={() => onToggle(option.value, isSelected)}
       >
         {option.icon && option.icon}
         <span className="truncate">{option.label}</span>
@@ -1587,7 +1587,7 @@ function FilterSubmenuContent<T = unknown>({
                 const option = filteredOptions[activeHighlightedIndex]
                 if (option) {
                   onToggle(
-                    option.value as T,
+                    option.value,
                     currentValues.includes(option.value)
                   )
                   if (!isMultiSelect) {
@@ -1643,7 +1643,7 @@ function FilterSubmenuContent<T = unknown>({
                 const option = filteredOptions[activeHighlightedIndex]
                 if (option) {
                   onToggle(
-                    option.value as T,
+                    option.value,
                     currentValues.includes(option.value)
                   )
                   if (!isMultiSelect) {
@@ -1773,10 +1773,10 @@ export function Filters<T = unknown>({
 
   useEffect(() => {
     if (lastAddedFilterId) {
-      const timer = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         setLastAddedFilterId(null)
       }, 1000)
-      return () => clearTimeout(timer)
+      return () => window.clearTimeout(timer)
     }
   }, [lastAddedFilterId])
 
@@ -2110,9 +2110,9 @@ export function Filters<T = unknown>({
                                   onToggle={(value, isSelected) => {
                                     if (isMultiSelect) {
                                       const nextValues = isSelected
-                                        ? (currentValues.filter(
+                                        ? currentValues.filter(
                                             (v) => v !== value
-                                          ) as T[])
+                                          )
                                         : ([...currentValues, value] as T[])
 
                                       if (sessionFilter) {

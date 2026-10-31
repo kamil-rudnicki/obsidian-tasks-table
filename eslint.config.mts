@@ -45,25 +45,9 @@ export default defineConfig(
 	},
 	{
 		files: generatedUi,
-		linterOptions: {
-			reportUnusedDisableDirectives: 'off',
-		},
 		rules: {
-			'@typescript-eslint/no-base-to-string': 'off',
-			'@typescript-eslint/no-deprecated': 'off',
-			'@typescript-eslint/no-unnecessary-type-assertion': 'off',
-			'@typescript-eslint/no-unsafe-assignment': 'off',
-			'@typescript-eslint/no-unsafe-call': 'off',
-			'@typescript-eslint/no-unsafe-member-access': 'off',
-			'@typescript-eslint/no-unsafe-return': 'off',
-			'eslint-comments/no-restricted-disable': 'off',
-			'eslint-comments/require-description': 'off',
-			// The grid sets the cursor on the body while a column resizes, and reads
-			// refs during render on purpose.
-			'obsidianmd/no-global-this': 'off',
-			'obsidianmd/no-static-styles-assignment': 'off',
-			'obsidianmd/prefer-instanceof': 'off',
-			'obsidianmd/prefer-window-timers': 'off',
+			// The registry code reads refs during render and leaves effect
+			// dependencies out on purpose.
 			'react-hooks/exhaustive-deps': 'off',
 			'react-hooks/incompatible-library': 'off',
 			'react-hooks/refs': 'off',
@@ -72,7 +56,7 @@ export default defineConfig(
 	},
 	{
 		// Build, test and E2E tooling runs in Node, not in Obsidian.
-		files: ['scripts/**/*.mjs', 'e2e/**/*.mjs', 'testing/**/*.ts', 'vitest.config.ts', 'src/**/*.test.ts'],
+		files: ['scripts/**/*.mjs', 'e2e/**/*.mjs', 'testing/**/*.mjs', 'vitest.config.ts', 'src/**/*.test.ts'],
 		languageOptions: {
 			globals: {
 				...globals.node,

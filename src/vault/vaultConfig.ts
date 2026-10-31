@@ -7,10 +7,15 @@ import {
 } from './dailyNotes'
 
 // Obsidian's moment.js, so dates follow the same tokens and locale as Obsidian.
-export const formatDate: DateFormatter = (date, format) => moment(date).format(format)
+// Typed here with the calls this file makes: `moment`'s own types come from a
+// package nested in `obsidian`, which not every type-aware check resolves.
+type MomentDate = { isValid: () => boolean; format: (format: string) => string }
+const obsidianMoment = moment as (input: Date | string, format?: string, strict?: boolean) => MomentDate
+
+export const formatDate: DateFormatter = (date, format) => obsidianMoment(date).format(format)
 
 export const parseDate: DateParser = (text, format) => {
-  const date = moment(text, format, true)
+  const date = obsidianMoment(text, format, true)
   return date.isValid() ? date.format('YYYY-MM-DD') : null
 }
 

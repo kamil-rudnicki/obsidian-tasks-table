@@ -97,7 +97,10 @@ export interface DataGridColumnCellEdit<TData> {
    * the consumer chose not to parse.
    */
   parse?: (raw: string, row: TData) => unknown
-  /** Typed value to clipboard string. Fallback: String(value ?? ""). */
+  /**
+   * Typed value to clipboard string. Fallback: strings, numbers and booleans as
+   * text, arrays joined with commas, anything else empty.
+   */
   format?: (value: unknown, row: TData) => string
   /** Value dispatched by Delete/Backspace and cut. Defaults to null. */
   clearValue?: unknown
@@ -203,8 +206,7 @@ export const dataGridFeatures = tableFeatures({
     text: sortFn_text,
     textCaseSensitive: sortFn_textCaseSensitive,
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  columnMeta: metaHelper<DataGridColumnMeta<any>>(),
+  columnMeta: metaHelper<DataGridColumnMeta<object>>(),
 })
 
 /** The feature set `dataGridFeatures` registers. */
@@ -229,7 +231,7 @@ export type DataGridTableInstance<TData extends object> = ReactTable<
 export function getColumnHeaderLabel<TData extends RowData, TValue>(
   column: Column<DataGridFeatures, TData, TValue>
 ): string {
-  const meta = column.columnDef.meta as { headerTitle?: string } | undefined
+  const meta = column.columnDef.meta
   if (typeof meta?.headerTitle === "string") return meta.headerTitle
   const defHeader = column.columnDef.header
   if (typeof defHeader === "string") return defHeader
@@ -254,7 +256,7 @@ export function getDataGridHeaderSpans<TData extends object>(
 
   for (const family of families) {
     for (let index = 0; index < family.length; index++) {
-      const owner = family[index]!
+      const owner = family[index]
       const span = Math.floor(owner.columnDef.meta?.headerColSpan ?? 1)
       if (span < 2) continue
 
@@ -495,7 +497,7 @@ export type DataGridAutoSizeController = {
 
 type DataGridAutoSizeReflowState = {
   applied: { columnId: string; base: number; grown: number } | null
-  settleTimer: ReturnType<typeof setTimeout> | null
+  settleTimer: number | null
   pendingFreeSpace: number
   lastCommitAt: number
 }
@@ -513,6 +515,18 @@ const dataGridAutoSizeStates = new WeakMap<
   object,
   DataGridAutoSizeReflowState
 >()
+
+/**
+ * The table's state store, as the table's identity: v9 keeps the store for the
+ * life of the table, while the React wrapper changes on every state change.
+ * Read through the core `Table` type, as the wrapper's deprecation of `store`
+ * is about reading `store.state` in render, which this never does.
+ */
+function getDataGridTableIdentity<TData extends object>(
+  table: Table<DataGridFeatures, TData>
+): object {
+  return table.store
+}
 
 function getDataGridAutoSizeState(store: object): DataGridAutoSizeReflowState {
   let state = dataGridAutoSizeStates.get(store)
@@ -554,7 +568,7 @@ function createDataGridAutoSizeController<TData extends object>(
   // which commits it, and preview, which only reports it.
   const resolveReflow = (freeSpace: number) => {
     const table = getTable()
-    const state = getDataGridAutoSizeState(table.store)
+    const state = getDataGridAutoSizeState(getDataGridTableIdentity(table))
     // LIVE state, never the render snapshot: a measurement can run between
     // our own sizing commit and React's re-render, and the stale snapshot
     // would hide the width this controller just wrote.
@@ -628,14 +642,14 @@ function createDataGridAutoSizeController<TData extends object>(
         : null
     },
     adopt(columnId: string, size: number) {
-      const state = getDataGridAutoSizeState(getTable().store)
+      const state = getDataGridAutoSizeState(getDataGridTableIdentity(getTable()))
       if (state.applied?.columnId === columnId) {
         state.applied = { ...state.applied, grown: size }
       }
     },
     apply(freeSpace: number) {
       const table = getTable()
-      const state = getDataGridAutoSizeState(table.store)
+      const state = getDataGridAutoSizeState(getDataGridTableIdentity(table))
       // Same live read as `reflow`; the snapshot race is what made the
       // re-arm check clear the bookkeeping right after the first absorb.
       const columnSizing =
@@ -661,8 +675,8 @@ function createDataGridAutoSizeController<TData extends object>(
           state.lastCommitAt = now
           return reflow(freeSpace)
         }
-        if (state.settleTimer !== null) clearTimeout(state.settleTimer)
-        state.settleTimer = setTimeout(() => {
+        if (state.settleTimer !== null) window.clearTimeout(state.settleTimer)
+        state.settleTimer = window.setTimeout(() => {
           state.settleTimer = null
           state.lastCommitAt = Date.now()
           reflow(state.pendingFreeSpace)
@@ -976,8 +990,7 @@ export interface DataGridProps<
 }
 
 const DataGridContext = createContext<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  DataGridContextProps<any> | undefined
+  DataGridContextProps<object> | undefined
 >(undefined)
 
 /**
@@ -987,8 +1000,7 @@ const DataGridContext = createContext<
  * unifies with a concrete row type the way it did on v8.
  */
 function useDataGrid<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  TData extends object = any,
+  TData extends object = object,
 >(): DataGridContextProps<TData> {
   const context = useContext(DataGridContext) as
     | DataGridContextProps<TData>
@@ -1142,17 +1154,17 @@ function DataGridProvider<TData extends object>({
     previousPageKeyRef.current = pageKey
     if (!cellSelectionOn || table.atoms.cellSelection == null) return
     tableRef.current.resetCellSelection(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey, cellSelectionOn])
 
   // One autoSize coordinator per table instance so split header/body viewports
-  // cannot apply the growth twice. Keyed on `table.store`, which v9 keeps
+  // cannot apply the growth twice. Keyed on the table's store, which v9 keeps
   // stable for the life of the table, rather than on `table` itself: the
   // wrapper is re-created on every state change, and re-creating the
   // controller with it would reset its applied-once bookkeeping mid-drag.
+  const tableIdentity = getDataGridTableIdentity(table)
   const autoSize = useMemo(
     () => createDataGridAutoSizeController(() => tableRef.current),
-    [table.store]
+    [tableIdentity]
   )
 
   // A new context value re-renders every useDataGrid reader, every cell
@@ -1217,11 +1229,11 @@ function DataGridProvider<TData extends object>({
 
   return (
     // One React context serves every TData, but v9 declares both TFeatures and
-    // TData invariant, so a `DataGridContextProps<any>` context cannot accept a
-    // `DataGridContextProps<TData>` value structurally. The erasure happens
+    // TData invariant, so a `DataGridContextProps<object>` context cannot accept
+    // a `DataGridContextProps<TData>` value structurally. The erasure happens
     // here and is undone by the TData generic on each consumer component.
     <DataGridContext.Provider
-      value={value as unknown as DataGridContextProps<TData>}
+      value={value as unknown as DataGridContextProps<object>}
     >
       {children}
     </DataGridContext.Provider>
@@ -1327,6 +1339,7 @@ function DataGridContainer({
 }
 
 export {
+  getDataGridTableIdentity,
   useDataGrid,
   useDataGridAtom,
   DataGridProvider,

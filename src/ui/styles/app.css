@@ -1,13 +1,11 @@
 /*
  * Every rule in this file is scoped to `.tasks-table-scope` at build time
- * (see build/scopeCss.mjs), so Tailwind's reset and utilities never touch
+ * (see scripts/scopeCss.mjs), so Tailwind's reset and utilities never touch
  * Obsidian's own interface. Colors follow the active Obsidian theme.
  */
-@import "tailwindcss" source(none);
+@import "tailwindcss" source("../");
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-
-@source "../";
 
 @custom-variant dark (&:is(.theme-dark *));
 
@@ -136,6 +134,14 @@
 [data-slot='data-grid-thumb'],
 [data-slot='data-grid-scroll-area'] + [aria-hidden='true'] .bg-border {
   background-color: var(--scrollbar-thumb-bg);
+}
+
+/*
+ * With keyboard cell selection, the focused cell's ring shows the focus; the
+ * browser's outline around the whole grid would double it.
+ */
+[data-cell-keyboard] {
+  outline: none;
 }
 
 /*

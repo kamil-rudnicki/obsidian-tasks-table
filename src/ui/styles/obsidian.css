@@ -23,3 +23,18 @@
   height: 0;
   z-index: var(--layer-menu);
 }
+
+/*
+ * On the body while a table column resizes: the whole window keeps the resize
+ * cursor, also over elements with a cursor of their own.
+ */
+body.tasks-table-col-resizing,
+body.tasks-table-col-resizing * {
+  cursor: col-resize !important;
+}
+
+/* On the body while the table's scrollbar thumb is dragged: no text is selected. */
+body.tasks-table-no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}

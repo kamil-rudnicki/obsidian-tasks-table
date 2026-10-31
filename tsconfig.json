@@ -27,7 +27,7 @@
 		"src/**/*.tsx",
 		"scripts/**/*.mjs",
 		"e2e/**/*.mjs",
-		"testing/**/*.ts",
+		"testing/**/*.mjs",
 		"vitest.config.ts"
 	]
 }

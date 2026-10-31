@@ -51,7 +51,7 @@
 		"@types/sql.js": "^1.4.9",
 		"esbuild": "0.28.2",
 		"eslint": "^9.39.4",
-		"eslint-plugin-obsidianmd": "^0.4.0",
+		"eslint-plugin-obsidianmd": "^0.4.2",
 		"eslint-plugin-react-hooks": "7.1.1",
 		"globals": "^17.6.0",
 		"jiti": "^2.6.1",

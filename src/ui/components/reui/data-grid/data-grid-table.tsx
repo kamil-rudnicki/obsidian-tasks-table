@@ -115,9 +115,9 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
  * width measurement - and the virtualizer - bind the wrong box.
  */
 function getDataGridScrollAreaViewport(node: HTMLElement): HTMLElement | null {
-  const scrollViewport = node.closest(
+  const scrollViewport = node.closest<HTMLElement>(
     '[data-slot="scroll-area-viewport"]'
-  ) as HTMLElement | null
+  )
 
   if (!scrollViewport) return null
 
@@ -160,11 +160,11 @@ function isDataGridPortalEvent(event: {
 type DataGridResizeStartEvent =
   ReactMouseEvent<HTMLElement> | ReactTouchEvent<HTMLElement>
 
-type DataGridResizeDocumentEvent = globalThis.MouseEvent | globalThis.TouchEvent
+type DataGridResizeDocumentEvent = MouseEvent | TouchEvent
 
 function isDataGridTouchEvent(
   event: DataGridResizeStartEvent | DataGridResizeDocumentEvent
-): event is ReactTouchEvent<HTMLElement> | globalThis.TouchEvent {
+): event is ReactTouchEvent<HTMLElement> | TouchEvent {
   return "touches" in event
 }
 
@@ -224,8 +224,6 @@ function startDataGridColumnResizeOnEnd<TData extends object>(
 
   const ownerDocument = event.currentTarget.ownerDocument
   const ownerWindow = ownerDocument.defaultView
-  const previousBodyCursor = ownerDocument.body.style.cursor
-  const previousDocumentCursor = ownerDocument.documentElement.style.cursor
   const startSize = header.getSize()
   // Track the initiating finger so a second touch cannot move or commit the
   // resize with the wrong clientX.
@@ -277,8 +275,8 @@ function startDataGridColumnResizeOnEnd<TData extends object>(
     return
   }
 
-  ownerDocument.body.style.cursor = "col-resize"
-  ownerDocument.documentElement.style.cursor = "col-resize"
+  // The whole window keeps the resize cursor during the drag (obsidian.css).
+  ownerDocument.body.classList.add("tasks-table-col-resizing")
 
   const columnSizingStart = leafColumns.map(
     (leafColumn) => [leafColumn.id, leafColumn.getSize()] as [string, number]
@@ -457,17 +455,16 @@ function startDataGridColumnResizeOnEnd<TData extends object>(
       deltaPercentage: null,
       columnSizingStart: [],
     }))
-    ownerDocument.body.style.cursor = previousBodyCursor
-    ownerDocument.documentElement.style.cursor = previousDocumentCursor
+    ownerDocument.body.classList.remove("tasks-table-col-resizing")
   }
 
-  const mouseMoveHandler = (moveEvent: globalThis.MouseEvent) => {
+  const mouseMoveHandler = (moveEvent: MouseEvent) => {
     updateOffset(moveEvent.clientX)
   }
-  const mouseUpHandler = (upEvent: globalThis.MouseEvent) => {
+  const mouseUpHandler = (upEvent: MouseEvent) => {
     endResize(upEvent.clientX)
   }
-  const touchMoveHandler = (moveEvent: globalThis.TouchEvent) => {
+  const touchMoveHandler = (moveEvent: TouchEvent) => {
     if (moveEvent.cancelable) {
       moveEvent.preventDefault()
       moveEvent.stopPropagation()
@@ -475,7 +472,7 @@ function startDataGridColumnResizeOnEnd<TData extends object>(
 
     updateOffset(getDataGridResizeEventClientX(moveEvent, touchIdentifier))
   }
-  const touchEndHandler = (endEvent: globalThis.TouchEvent) => {
+  const touchEndHandler = (endEvent: TouchEvent) => {
     // Ignore other fingers lifting; only the initiating touch ends the drag.
     const clientXPos =
       typeof touchIdentifier === "number"
@@ -565,15 +562,15 @@ function getDataGridTableRowSections<TData extends object>(
   if (!rowsPinnable) {
     return {
       topRows: [] as Row<DataGridFeatures, TData>[],
-      centerRows: table.getRowModel().rows as Row<DataGridFeatures, TData>[],
+      centerRows: table.getRowModel().rows,
       bottomRows: [] as Row<DataGridFeatures, TData>[],
     }
   }
 
   return {
-    topRows: table.getTopRows() as Row<DataGridFeatures, TData>[],
-    centerRows: table.getCenterRows() as Row<DataGridFeatures, TData>[],
-    bottomRows: table.getBottomRows() as Row<DataGridFeatures, TData>[],
+    topRows: table.getTopRows(),
+    centerRows: table.getCenterRows(),
+    bottomRows: table.getBottomRows(),
   }
 }
 
@@ -690,7 +687,7 @@ function getDataGridTableMergedHeaderGroups<TData extends object>(
 
     const cells: Header<DataGridFeatures, TData, unknown>[] = []
     for (let index = 0; index < rendered.length; index++) {
-      const header = rendered[index]!
+      const header = rendered[index]
       cells.push(header)
       const coveredColumns = header.column.columns.length
         ? undefined
@@ -793,7 +790,7 @@ function getDataGridHeadCellResizeHeader<TData extends object>(
   coveredHeaders?: Header<DataGridFeatures, TData, unknown>[]
 ) {
   return coveredHeaders?.length && header.column.getIsPinned() !== "end"
-    ? coveredHeaders[coveredHeaders.length - 1]!
+    ? coveredHeaders[coveredHeaders.length - 1]
     : header
 }
 
@@ -987,7 +984,7 @@ function DataGridTableAddRow() {
             // Through the getter: this render's props can hold an older
             // callback, since the context counts callbacks by presence.
             context.props.onRowCreate?.()
-            setTimeout(() => {
+            window.setTimeout(() => {
               if (
                 !button.isConnected &&
                 grid?.isConnected &&
@@ -1036,7 +1033,7 @@ function DataGridTableBase({ children }: { children: ReactNode }) {
       .find((column) => column.columnDef.meta?.fillWidth)?.id
     const colSizes: Record<string, number | string> = {}
     for (let i = 0; i < headers.length; i++) {
-      const header = headers[i]!
+      const header = headers[i]
       colSizes[`--header-${header.id}-size`] = header.getSize()
       colSizes[`--col-${header.column.id}-size`] =
         header.column.id === fillColumnId
@@ -1044,23 +1041,18 @@ function DataGridTableBase({ children }: { children: ReactNode }) {
           : header.column.getSize()
     }
     return colSizes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     props.tableLayout?.columnsResizable,
     columnSizing,
     // Visibility/order/pinning change the flat header set, so a column shown
     // after mount must get its size variable even though sizing is untouched.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.state.columnVisibility,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.state.columnOrder,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.state.columnPinning,
     // A def swap can change a column's `size` without touching sizing
     // STATE; without this dep the CSS variables keep the old widths. For a
     // consumer defining columns inline the memo degrades to per-render
     // recompute, which is the safe direction.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     table.options.columns,
   ])
 

@@ -12,14 +12,8 @@ const scopeClassName = 'tasks-table-scope'
 // Renders the tasks table into an Obsidian view. Popups go into a scoped
 // element at the end of the view's window, so they also work in pop-out windows.
 export const mountTasksApp = (host: HTMLElement): (() => void) => {
-  const document = host.ownerDocument
-  const container = document.createElement('div')
-  container.className = `${scopeClassName} tasks-table-mount`
-  host.appendChild(container)
-
-  const portalContainer = document.createElement('div')
-  portalContainer.className = `${scopeClassName} tasks-table-portal`
-  document.body.appendChild(portalContainer)
+  const container = host.createDiv({ cls: [scopeClassName, 'tasks-table-mount'] })
+  const portalContainer = host.ownerDocument.body.createDiv({ cls: [scopeClassName, 'tasks-table-portal'] })
 
   const root = createRoot(container)
   root.render(

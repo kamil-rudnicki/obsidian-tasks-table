@@ -11,7 +11,10 @@ import type {
   RefObject,
 } from "react"
 import { createPortal } from "react-dom"
-import { useDataGrid } from "@/components/reui/data-grid/data-grid"
+import {
+  getDataGridTableIdentity,
+  useDataGrid,
+} from "@/components/reui/data-grid/data-grid"
 import type {
   DataGridCellChange,
   DataGridCellRejection,
@@ -69,6 +72,22 @@ interface DataGridEditorSession {
  * Clipboard text: pure, node-testable.
  * ------------------------------------------------------------------------- */
 
+// The clipboard text of a cell without a `cellEdit.format`: strings, numbers
+// and booleans as text, arrays joined with commas as `String()` does, and
+// anything else, which has no useful text, empty.
+function getDataGridCellText(value: unknown): string {
+  if (typeof value === "string") return value
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
+    return String(value)
+  }
+  if (Array.isArray(value)) return value.map(getDataGridCellText).join(",")
+  return ""
+}
+
 function serializeDataGridClipboardField(field: string): string {
   // Excel and Sheets quote a field containing a delimiter and double inner
   // quotes; everything else ships bare.
@@ -97,7 +116,7 @@ function parseDataGridClipboardText(text: string): string[][] {
   let i = 0
 
   while (i < text.length) {
-    const ch = text[i]!
+    const ch = text[i]
     if (quoted) {
       if (ch === '"') {
         if (text[i + 1] === '"') {
@@ -470,7 +489,7 @@ function getDataGridActiveRegionGrid<TData extends object>(
       const value = cells[column.id]?.getValue()
       const format = column.columnDef.meta?.cellEdit?.format
       line.push(
-        format ? format(value, row.original) : String(value ?? "")
+        format ? format(value, row.original) : getDataGridCellText(value)
       )
     }
     grid.push(line)
@@ -618,7 +637,7 @@ function buildDataGridPasteDetails<TData extends object>(
   const rejected: DataGridCellRejection[] = []
 
   for (let r = 0; r < targetRows.length; r++) {
-    const row = targetRows[r]!.row
+    const row = targetRows[r].row
     const cells = row.getAllCellsByColumnId()
     for (let c = 0; c < columnCount; c++) {
       const column = targetColumns[c]?.column
@@ -663,8 +682,8 @@ function buildDataGridPasteDetails<TData extends object>(
       startRowIndex,
       endRowIndex: targetRows[targetRows.length - 1]?.displayIndex ?? startRowIndex,
       rowCount: targetRows.length,
-      startColumnIndex: targetColumns[0]!.displayIndex,
-      endColumnIndex: lastTarget!.displayIndex,
+      startColumnIndex: targetColumns[0].displayIndex,
+      endColumnIndex: lastTarget.displayIndex,
     },
   }
 }
@@ -769,7 +788,7 @@ function startDataGridFillSession<TData extends object>(options: {
   const visibleRows: Array<{ row: (typeof rows)[number]; displayIndex: number }> =
     []
   for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]!
+    const row = rows[i]
     if (domRowIds.has(row.id)) {
       visibleRows.push({ row, displayIndex: i })
     }
@@ -783,7 +802,7 @@ function startDataGridFillSession<TData extends object>(options: {
       displayIndex >= bound.minRowIndex && displayIndex <= bound.maxRowIndex
   )
   const sourceEndVisibleIndex = sourceRows.length
-    ? visibleIndexById.get(sourceRows[sourceRows.length - 1]!.row.id)!
+    ? visibleIndexById.get(sourceRows[sourceRows.length - 1].row.id)!
     : -1
   if (sourceEndVisibleIndex === -1) return
   const columnIndexById = new Map(
@@ -796,11 +815,11 @@ function startDataGridFillSession<TData extends object>(options: {
   let extension: { axis: "row" | "column"; count: number } | null = null
   let previewCells: Element[] = []
 
-  const previewOutline = viewport.ownerDocument.createElement("div")
-  previewOutline.setAttribute("data-slot", "data-grid-cell-fill-preview")
+  const previewOutline = viewport.createDiv({
+    attr: { "data-slot": "data-grid-cell-fill-preview" },
+  })
   previewOutline.className = dataGridGestureOutlineClasses
-  previewOutline.style.display = "none"
-  viewport.appendChild(previewOutline)
+  previewOutline.hidden = true
   viewport.setAttribute("data-cell-filling", "")
 
   // The region border wraps source plus extension: its corners are the
@@ -814,19 +833,19 @@ function startDataGridFillSession<TData extends object>(options: {
       : null
   const positionPreviewOutline = () => {
     const first = sourceRows.length
-      ? sourceCorner(sourceRows[0]!.row.id, columns[bound.minColumnIndex]?.id)
+      ? sourceCorner(sourceRows[0].row.id, columns[bound.minColumnIndex]?.id)
       : null
     const lastSource = sourceRows.length
       ? sourceCorner(
-          sourceRows[sourceRows.length - 1]!.row.id,
+          sourceRows[sourceRows.length - 1].row.id,
           columns[bound.maxColumnIndex]?.id
         )
       : null
     const far = previewCells.length
-      ? previewCells[previewCells.length - 1]!
+      ? previewCells[previewCells.length - 1]
       : lastSource
     if (!first || !far) {
-      previewOutline.style.display = "none"
+      previewOutline.hidden = true
       return
     }
     const firstRect = first.getBoundingClientRect()
@@ -834,7 +853,7 @@ function startDataGridFillSession<TData extends object>(options: {
     const viewportRect = viewport.getBoundingClientRect()
     const left = Math.min(firstRect.left, farRect.left)
     const top = Math.min(firstRect.top, farRect.top)
-    previewOutline.style.display = "block"
+    previewOutline.hidden = false
     previewOutline.style.left = `${left - viewportRect.left + viewport.scrollLeft}px`
     previewOutline.style.top = `${top - viewportRect.top + viewport.scrollTop}px`
     previewOutline.style.width = `${Math.max(firstRect.right, farRect.right) - left}px`
@@ -946,8 +965,8 @@ function startDataGridFillSession<TData extends object>(options: {
 
     if (extension.axis === "row") {
       for (let offset = 0; offset < targets.rowEntries.length; offset++) {
-        const targetRow = targets.rowEntries[offset]!.row
-        const sourceRow = sourceRows[offset % sourceRows.length]!.row
+        const targetRow = targets.rowEntries[offset].row
+        const sourceRow = sourceRows[offset % sourceRows.length].row
         const targetCells = targetRow.getAllCellsByColumnId()
         const sourceCells = sourceRow.getAllCellsByColumnId()
         for (const { column } of targets.columnEntries) {
@@ -987,7 +1006,7 @@ function startDataGridFillSession<TData extends object>(options: {
               sourceColumn.columnDef.meta?.cellEdit?.format
             const raw = sourceFormat
               ? sourceFormat(sourceValue, row.original)
-              : String(sourceValue ?? "")
+              : getDataGridCellText(sourceValue)
             const parsed = targetEdit.parse(raw, row.original)
             if (parsed === undefined) {
               rejected.push({
@@ -1021,7 +1040,7 @@ function startDataGridFillSession<TData extends object>(options: {
       startRowIndex: bound.minRowIndex,
       endRowIndex:
         extension.axis === "row"
-          ? targets.rowEntries[targets.rowEntries.length - 1]!.displayIndex
+          ? targets.rowEntries[targets.rowEntries.length - 1].displayIndex
           : bound.maxRowIndex,
       startColumnIndex: bound.minColumnIndex,
       endColumnIndex:
@@ -1106,6 +1125,7 @@ function DataGridCellSelection<TData extends object>({
   const [editorSession, setEditorSession] =
     useState<DataGridEditorSession | null>(null)
   const { table } = context
+  const tableIdentity = getDataGridTableIdentity(table)
   const enabled =
     !!context.props.tableLayout?.cellSelection &&
     table.atoms.cellSelection != null
@@ -1115,8 +1135,8 @@ function DataGridCellSelection<TData extends object>({
     const anchor = anchorRef.current
     if (!anchor) return
 
-    const root = (anchor.closest('[data-slot="data-grid"]') ??
-      anchor.parentElement) as HTMLElement | null
+    const root =
+      anchor.closest('[data-slot="data-grid"]') ?? anchor.parentElement
     if (!root) return
 
     // Split header/body grids render two viewports; the body one owns focus.
@@ -1176,7 +1196,7 @@ function DataGridCellSelection<TData extends object>({
       // After the atom write React still has to commit the data attributes;
       // rAF lands after that commit. Instant, because the app-level
       // scroll-smooth would otherwise animate every keystroke.
-      requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
         const cell = queryScrollCell()
         syncActiveDescendant()
         if (cell || targetRowIndex == null || !rowCount) {
@@ -1195,7 +1215,7 @@ function DataGridCellSelection<TData extends object>({
         scroller.scrollTop =
           ((targetRowIndex + 0.5) / rowCount) * scroller.scrollHeight -
           scroller.clientHeight / 2
-        requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
           scrollTdIntoView(queryScrollCell())
           syncActiveDescendant()
         })
@@ -1281,14 +1301,14 @@ function DataGridCellSelection<TData extends object>({
     // table model, DOM focus needs the focus target, and both race the
     // commit that mounts the row. One bounded timer retry (timers, unlike
     // animation frames, run in background tabs) settles all of it in order.
-    let focusRetryTimer: ReturnType<typeof setTimeout> | undefined
+    let focusRetryTimer: number | undefined
     const focusCell: DataGridCellSelectionApi["focusCell"] = (
       rowId,
       columnId,
       options
     ) => {
       // A newer call supersedes any chain still polling for an older row.
-      clearTimeout(focusRetryTimer)
+      window.clearTimeout(focusRetryTimer)
       let attempts = 12
       const attempt = () => {
         // The grid can unmount mid-retry; a stale timer must go quiet.
@@ -1297,7 +1317,7 @@ function DataGridCellSelection<TData extends object>({
           `tr[data-row-id="${CSS.escape(rowId)}"] td[data-col-id="${CSS.escape(columnId)}"]`
         )
         if (!cell) {
-          if (attempts-- > 0) focusRetryTimer = setTimeout(attempt, 32)
+          if (attempts-- > 0) focusRetryTimer = window.setTimeout(attempt, 32)
           return
         }
         getTable().setFocusedCell(rowId, columnId)
@@ -1314,7 +1334,7 @@ function DataGridCellSelection<TData extends object>({
           if (!cell.isConnected) return
           if (cell.hasAttribute("data-cell-focused")) requestCellEdit()
           else if (editAttempts-- > 0) {
-            focusRetryTimer = setTimeout(attemptEdit, 32)
+            focusRetryTimer = window.setTimeout(attemptEdit, 32)
           }
         }
         attemptEdit()
@@ -1323,7 +1343,7 @@ function DataGridCellSelection<TData extends object>({
     }
     const clearSelection = () => {
       getTable().resetCellSelection(true)
-      requestAnimationFrame(syncActiveDescendant)
+      window.requestAnimationFrame(syncActiveDescendant)
     }
     const scrollToCell = (rowId: string, columnId: string) => {
       scrollTdIntoView(
@@ -1496,7 +1516,7 @@ function DataGridCellSelection<TData extends object>({
       let rowEl = body?.lastElementChild
       while (rowEl && !rowEl.hasAttribute("data-row-id")) {
         if (
-          rowEl instanceof HTMLElement &&
+          rowEl.instanceOf(HTMLElement) &&
           !rowEl.hasAttribute("aria-hidden")
         ) {
           appended.unshift(rowEl)
@@ -1525,9 +1545,9 @@ function DataGridCellSelection<TData extends object>({
       // grid's cell navigation. Every other key stays native there.
       const appendedRow =
         event.target instanceof Element
-          ? (event.target.closest(
+          ? event.target.closest<HTMLElement>(
               "tbody > tr:not([data-row-id])"
-            ) as HTMLElement | null)
+            )
           : null
       if (appendedRow && viewport.contains(appendedRow)) {
         const appended = getAppendedRows()
@@ -1587,7 +1607,7 @@ function DataGridCellSelection<TData extends object>({
           table.selectAllCells()
           // Select-all moves the feature's focus to the range corner,
           // which can sit off-page; keep assistive tech pointed right.
-          requestAnimationFrame(syncActiveDescendant)
+          window.requestAnimationFrame(syncActiveDescendant)
         }
         event.preventDefault()
         return
@@ -1771,7 +1791,7 @@ function DataGridCellSelection<TData extends object>({
             table.resetCellSelection(true)
             // The focused-cell attribute is gone after the commit;
             // aria-activedescendant must not keep naming it.
-            requestAnimationFrame(syncActiveDescendant)
+            window.requestAnimationFrame(syncActiveDescendant)
             event.preventDefault()
             event.stopPropagation()
           }
@@ -1818,9 +1838,9 @@ function DataGridCellSelection<TData extends object>({
     // Writes the active region to the system clipboard in both flavors.
     // Needed because a native copy event only fires for a text selection
     // or an editable target, and a focused grid is neither - Cmd/Ctrl+C
-    // would silently do nothing on macOS, Windows and Linux alike. The
-    // async API needs a secure context; the execCommand fallback covers
-    // the rest with the TSV flavor alone.
+    // would silently do nothing on macOS, Windows and Linux alike. Obsidian
+    // always has the async clipboard API, so there is no execCommand
+    // fallback.
     const writeSelectionToClipboard = async (): Promise<{
       text: string
       grid: string[][]
@@ -1848,24 +1868,9 @@ function DataGridCellSelection<TData extends object>({
           return { text, grid }
         }
       } catch {
-        // Denied or unavailable; the legacy path below still applies.
+        // Denied: nothing is copied.
       }
-      const doc = viewport.ownerDocument
-      const scratch = doc.createElement("textarea")
-      scratch.value = text
-      scratch.style.position = "fixed"
-      scratch.style.opacity = "0"
-      doc.body.appendChild(scratch)
-      scratch.select()
-      let copied = false
-      try {
-        copied = doc.execCommand("copy")
-      } catch {
-        copied = false
-      }
-      scratch.remove()
-      focusTarget.focus()
-      return copied ? { text, grid } : null
+      return null
     }
 
     const copySelection = (event: ClipboardEvent, cut: boolean): boolean => {
@@ -1998,7 +2003,7 @@ function DataGridCellSelection<TData extends object>({
         tableNow.setFocusedCell(rowId, columnId)
       }
       focusTarget.focus()
-      requestAnimationFrame(syncActiveDescendant)
+      window.requestAnimationFrame(syncActiveDescendant)
     }
 
     // Drag-to-select outranks in-cell controls: when a drag grew the
@@ -2032,7 +2037,7 @@ function DataGridCellSelection<TData extends object>({
         clickEvent.preventDefault()
       }
       viewport.addEventListener("click", squelch, { capture: true })
-      setTimeout(
+      window.setTimeout(
         () => viewport.removeEventListener("click", squelch, true),
         0
       )
@@ -2041,7 +2046,7 @@ function DataGridCellSelection<TData extends object>({
     const handleMouseDown = (event: MouseEvent) => {
       if (event.button !== 0) return
       // The cell a click focuses reaches assistive tech once React commits.
-      requestAnimationFrame(syncActiveDescendant)
+      window.requestAnimationFrame(syncActiveDescendant)
       const target = event.target as Element | null
       // A modifier press is a selection gesture all the way through, the
       // Sheets contract: extending must not hand the keyboard to whatever
@@ -2057,7 +2062,7 @@ function DataGridCellSelection<TData extends object>({
         isRangeSelectionEnabled() &&
         target?.closest?.("td[data-col-id]")
       ) {
-        setTimeout(() => focusTarget.focus(), 0)
+        window.setTimeout(() => focusTarget.focus(), 0)
       }
       // Any td press can become a drag; the squelch only arms when the
       // range actually grew by release time. The attribute hides the fill
@@ -2106,12 +2111,11 @@ function DataGridCellSelection<TData extends object>({
     }
 
     const previousTabIndex = focusTarget.getAttribute("tabindex")
-    const previousOutline = focusTarget.style.outline
     if (keyboard) {
       focusTarget.tabIndex = 0
       // The focused CELL ring is the indicator; the browser's outline around
-      // the whole grid on focus() would double it.
-      focusTarget.style.outline = "none"
+      // the whole grid on focus() would double it (app.css removes it).
+      focusTarget.setAttribute("data-cell-keyboard", "")
       viewport.addEventListener("keydown", handleKeyDown)
     }
     if (clipboard) {
@@ -2164,7 +2168,7 @@ function DataGridCellSelection<TData extends object>({
       if (keyboard) {
         if (previousTabIndex === null) focusTarget.removeAttribute("tabindex")
         else focusTarget.setAttribute("tabindex", previousTabIndex)
-        focusTarget.style.outline = previousOutline
+        focusTarget.removeAttribute("data-cell-keyboard")
         focusTarget.removeAttribute("aria-activedescendant")
         viewport.removeEventListener("keydown", handleKeyDown)
       }
@@ -2182,7 +2186,7 @@ function DataGridCellSelection<TData extends object>({
       viewport.ownerDocument.removeEventListener("mouseup", handleDragMouseUp)
       viewport.removeAttribute("data-cell-selecting")
       selectionSubscription?.unsubscribe()
-      clearTimeout(focusRetryTimer)
+      window.clearTimeout(focusRetryTimer)
       if (apiRef) apiRef.current = null
       setViewportEl(null)
       setEditorSession(null)
@@ -2191,8 +2195,7 @@ function DataGridCellSelection<TData extends object>({
     // effect re-runs only when the table itself is replaced. apiRef is only
     // read and written here: keeping it out of the deps means an inline ref
     // object cannot tear the listeners down every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, keyboard, clipboard, table.store])
+  }, [enabled, keyboard, clipboard, tableIdentity])
 
   // The editor overlay covers the cell but not the fill handle's
   // straddling half, which would poke out beneath it; the viewport flags
@@ -2236,7 +2239,7 @@ function DataGridCellSelection<TData extends object>({
       }
     }
     if (!refocus) return
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       const focusEl =
         viewportEl?.querySelector<HTMLElement>(
           'table[data-slot="data-grid-table"]'

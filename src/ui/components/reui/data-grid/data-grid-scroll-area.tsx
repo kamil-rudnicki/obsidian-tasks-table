@@ -71,6 +71,10 @@ type DataGridScrollAreaProps = Omit<
   orientation?: DataGridScrollAreaOrientation
 }
 
+// On the body while the thumb is dragged: no text is selected on the page
+// (obsidian.css).
+const DRAG_BODY_CLASSNAME = "tasks-table-no-select"
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
@@ -132,6 +136,7 @@ function DataGridScrollArea({
     pointerId: number
     startScrollTop: number
     startY: number
+    ownerDocument: Document
   } | null>(null)
   const metricsRef = useRef<ScrollbarMetrics>(INITIAL_METRICS)
   const observedElementsRef = useRef<ObservedElements>({
@@ -184,9 +189,9 @@ function DataGridScrollArea({
   }, [])
 
   const clearDragState = useCallback(() => {
+    const ownerDocument = dragRef.current?.ownerDocument
     dragRef.current = null
-    document.body.style.userSelect = ""
-    document.body.style.webkitUserSelect = ""
+    ownerDocument?.body.classList.remove(DRAG_BODY_CLASSNAME)
   }, [])
 
   // The overlay is mounted one commit after the sync that detected overflow,
@@ -326,16 +331,16 @@ function DataGridScrollArea({
       observedElementsRef.current = {
         header: container.querySelector(
           '[data-slot="data-grid-table"] thead'
-        ) as HTMLElement | null,
+        ),
         horizontalScrollbar: container.querySelector(
           '[data-slot="data-grid-scrollbar"][data-orientation="horizontal"]'
-        ) as HTMLElement | null,
+        ),
         table: container.querySelector(
           '[data-slot="data-grid-table"]'
-        ) as HTMLElement | null,
+        ),
         tableViewport: container.querySelector(
           '[data-slot="data-grid-table-viewport"]'
-        ) as HTMLElement | null,
+        ),
       }
 
       observeElement(observedElementsRef.current.header)
@@ -413,10 +418,10 @@ function DataGridScrollArea({
       pointerId: event.pointerId,
       startScrollTop: viewport.scrollTop,
       startY: event.clientY,
+      ownerDocument: event.currentTarget.ownerDocument,
     }
 
-    document.body.style.userSelect = "none"
-    document.body.style.webkitUserSelect = "none"
+    event.currentTarget.ownerDocument.body.classList.add(DRAG_BODY_CLASSNAME)
   }
 
   const handleThumbPointerMove = (event: PointerEvent<HTMLDivElement>) => {

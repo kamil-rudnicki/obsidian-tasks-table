@@ -11,7 +11,6 @@ import {
   useDataGrid,
 } from "@/components/reui/data-grid/data-grid"
 import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid"
-import { Subscribe } from "@tanstack/react-table"
 import type { Column } from "@tanstack/react-table"
 
 import { cn } from "@/lib/utils"
@@ -131,7 +130,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
         .sort(byRenderedOrder)
     )
     .filter((leaves) => leaves.length > 0)
-    .sort((a, b) => byRenderedOrder(a[0]!, b[0]!))
+    .sort((a, b) => byRenderedOrder(a[0], b[0]))
   const renderedIndex = column.columns.length
     ? -1
     : renderedPeers.findIndex((leaves) => leaves[0] === column.id)
@@ -384,7 +383,6 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
     }
 
     return items
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filter,
     canSort,
@@ -447,7 +445,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
                 column.pin(false)
                 // A column the virtual window leaves unmounted claims nothing,
                 // so the grid's scroll area takes focus instead of the page.
-                requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
                   if (pendingUnpinFocus.delete(column)) scrollArea?.focus()
                 })
               }}
@@ -512,8 +510,7 @@ function DataGridColumnHeader<TData extends object, TValue>(
   const { table } = useDataGrid()
 
   return (
-    <Subscribe
-      source={table.store}
+    <table.Subscribe
       selector={(state) => ({
         sorting: state.sorting,
         columnPinning: state.columnPinning,
@@ -524,7 +521,7 @@ function DataGridColumnHeader<TData extends object, TValue>(
       {(subscribed) => (
         <DataGridColumnHeaderMemo {...props} subscribedState={subscribed} />
       )}
-    </Subscribe>
+    </table.Subscribe>
   )
 }
 
