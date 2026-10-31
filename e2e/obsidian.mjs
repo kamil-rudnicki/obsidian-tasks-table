@@ -170,6 +170,10 @@ export const launchObsidian = async ({
   // The page behaves as if its window had the focus, while the app in use keeps it.
   const session = await page.context().newCDPSession(page)
   await session.send('Emulation.setFocusEmulationEnabled', { enabled: true })
+  // `app.workspace` exists from the start, but Obsidian reads the community
+  // plugins later, before it loads the layout. A plugin copied in before that
+  // read makes Obsidian ask whether to trust the vault.
+  await page.waitForFunction(() => window.app.workspace.layoutReady, null, { timeout: 30000 })
 
   if (usesPlugins) {
     // Trusting loads the plugin; it is enabled by hand only when that did not
