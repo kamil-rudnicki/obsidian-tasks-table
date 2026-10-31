@@ -3,7 +3,6 @@ import type { Row } from '@tanstack/react-table'
 import { getToday } from '@shared/dateLogic'
 import type { Task, TaskGroupField } from '@shared/taskTypes'
 import type { DataGridFeatures } from '@/components/reui/data-grid/data-grid'
-import { TagBadge } from '@/components/TagBadge/TagBadge'
 import { TaskPriorityIcon } from '@/components/TaskCells/TaskPriorityIcon'
 import { TaskStatusIcon } from '@/components/TaskCells/TaskStatusIcon'
 import { cn } from '@/lib/utils'
@@ -14,7 +13,8 @@ type TaskGroupRowProps = {
   field: TaskGroupField
 }
 
-// The group's value as its cells show it: icons for status and priority, pills for tags.
+// The group's value with the icons its cells show for status and priority. Tags
+// read as plain text, so the header stays quiet next to the colored pills below.
 const GroupValue = ({ field, groupKey, task, label }: { field: TaskGroupField; groupKey: string; task: Task; label: string }) => {
   if (groupKey === '') {
     return <span className='text-muted-foreground'>{label}</span>
@@ -32,14 +32,6 @@ const GroupValue = ({ field, groupKey, task, label }: { field: TaskGroupField; g
         <span className='flex items-center gap-1.5 font-medium'>
           <TaskPriorityIcon priority={task.priority} />
           {label}
-        </span>
-      )
-    case 'tags':
-      return (
-        <span className='flex min-w-0 items-center gap-1 overflow-hidden'>
-          {task.tags.map((tag) => (
-            <TagBadge key={tag} tag={tag} />
-          ))}
         </span>
       )
     default:
