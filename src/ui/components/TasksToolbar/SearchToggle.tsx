@@ -1,16 +1,27 @@
-import { useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { SearchIcon, XIcon } from 'lucide-react'
 import { useSelector } from '@tanstack/react-store'
 import { Button } from '@/components/ui/button'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
-import { setSearch, tasksViewStore } from '@/logic/viewStateLogic'
+import { setSearch, setSearchOpen, tasksViewStore } from '@/logic/viewStateLogic'
 import { ToolbarLabel } from './ToolbarLabel'
 import { toolbarButtonClassName } from './toolbarButtonClassName'
 
-// A "Search" button that turns into a field, as in Bases. It stays open while it holds text.
+// A "Search" button that turns into a field, as in Bases. It stays open while it
+// holds text. Mod+F opens it, or focuses it and selects its text when it is open.
 export const SearchToggle = () => {
   const search = useSelector(tasksViewStore, (state) => state.search)
-  const [open, setOpen] = useState(false)
+  const open = useSelector(tasksViewStore, (state) => state.searchOpen)
+  const focusRequest = useSelector(tasksViewStore, (state) => state.searchFocusRequest)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // A field that opens takes focus through autoFocus; an open one needs a nudge.
+  useEffect(() => {
+    if (focusRequest > 0) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [focusRequest])
 
   if (!open && search === '') {
     return (
@@ -18,7 +29,7 @@ export const SearchToggle = () => {
         variant='ghost'
         size='sm'
         className={toolbarButtonClassName}
-        onClick={() => setOpen(true)}
+        onClick={() => setSearchOpen(true)}
       >
         <SearchIcon data-icon='inline-start' />
         <ToolbarLabel>Search</ToolbarLabel>
@@ -28,7 +39,7 @@ export const SearchToggle = () => {
 
   const close = () => {
     setSearch('')
-    setOpen(false)
+    setSearchOpen(false)
   }
 
   return (
@@ -37,6 +48,7 @@ export const SearchToggle = () => {
         <SearchIcon />
       </InputGroupAddon>
       <InputGroupInput
+        ref={inputRef}
         type='text'
         inputMode='search'
         aria-label='Search tasks'
@@ -46,7 +58,7 @@ export const SearchToggle = () => {
         onChange={(event) => setSearch(event.target.value)}
         onBlur={() => {
           if (search === '') {
-            setOpen(false)
+            setSearchOpen(false)
           }
         }}
         onKeyDown={(event) => {

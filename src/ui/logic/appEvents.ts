@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { getPluginApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queries'
 import { setNewTaskOpen } from '@/logic/newTaskLogic'
+import { focusSearch } from '@/logic/viewStateLogic'
 
 export const subscribeToAppEvents = (queryClient: QueryClient): (() => void) =>
   getPluginApi().onEvent((event) => {
@@ -20,6 +21,9 @@ export const subscribeToAppEvents = (queryClient: QueryClient): (() => void) =>
         break
       case 'focus-new-task':
         setNewTaskOpen(true)
+        break
+      case 'focus-search':
+        focusSearch()
         break
     }
   })

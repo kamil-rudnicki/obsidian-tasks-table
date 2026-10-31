@@ -20,6 +20,11 @@ export class TasksTableView extends ItemView {
       this.services.emit({ type: 'focus-new-task' })
       return false
     })
+    // Mod+F searches the tasks; the table has no note to find text in.
+    this.scope.register(['Mod'], 'f', () => {
+      this.services.emit({ type: 'focus-search' })
+      return false
+    })
   }
 
   getViewType(): string {

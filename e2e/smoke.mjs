@@ -220,7 +220,13 @@ try {
   })
 
   await step('shows edits made in notes', async () => {
-    await root.getByRole('button', { name: 'Search' }).click()
+    // Mod+F opens the search field and focuses it.
+    await root.getByRole('grid').focus()
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+KeyF' : 'Control+KeyF')
+    await waitFor(
+      () => page.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Search tasks'),
+      'Mod+F did not focus the search field.',
+    )
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Pay rent')
     // Typing in Obsidian's editor reaches the table once Obsidian saves the note.
     await page.evaluate(async () => {

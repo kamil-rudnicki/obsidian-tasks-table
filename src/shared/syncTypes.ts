@@ -14,3 +14,4 @@ export type AppEvent =
   | { type: 'settings-changed' }
   | { type: 'sync-status'; status: SyncStatus }
   | { type: 'focus-new-task' }
+  | { type: 'focus-search' }
