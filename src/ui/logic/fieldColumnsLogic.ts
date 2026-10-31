@@ -2,8 +2,8 @@ import { optionalColumnIds, taskColumnIds } from '@shared/taskColumns'
 import { toInlineFieldId } from '@shared/taskTypes'
 
 // Columns for inline fields start hidden: a vault can use many fields, and a
-// view shows only the ones turned on in Properties. So do optional columns
-// that a view saved before they existed does not know.
+// view shows only the ones turned on in Properties. So do optional columns,
+// such as the checkbox, in every view that has not turned them on.
 export const getColumnVisibility = (
   saved: Record<string, boolean>,
   fieldKeys: string[],

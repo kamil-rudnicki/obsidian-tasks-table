@@ -27,7 +27,7 @@ export const priorityLabels: Record<TaskPriority, string> = {
 }
 
 export const columnLabels: Record<TaskColumnId, string> = {
-  complete: 'Done',
+  complete: 'Checkbox',
   description: 'Task',
   status: 'Status',
   priority: 'Priority',

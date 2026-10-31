@@ -3,7 +3,10 @@ import { getColumnOrder, getColumnVisibility } from './fieldColumnsLogic'
 
 describe('field columns', () => {
   test('start hidden unless the view shows them', () => {
+    // A view that turned the checkbox on keeps it.
+    expect(getColumnVisibility({ complete: true }, []).complete).toBe(true)
     expect(getColumnVisibility({ folder: false, 'field:type': true }, ['type', 'id'])).toEqual({
+      complete: false,
       links: false,
       'field:type': true,
       'field:id': false,

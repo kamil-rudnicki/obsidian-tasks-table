@@ -87,6 +87,11 @@ try {
     await page.getByRole('menuitemradio', { name: 'All tasks' }).click()
     await root.getByRole('button', { name: 'Search' }).click()
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Review pricing')
+    // The checkbox repeats the Status column, so it starts hidden. It stays on in
+    // this view: later steps find cells by their position.
+    await root.getByRole('button', { name: 'Properties' }).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Checkbox', exact: true }).click()
+    await page.keyboard.press('Escape')
     await root.locator('tbody tr', { hasText: 'Review pricing page' }).getByRole('checkbox').click()
     const line = await waitFor(
       async () => {

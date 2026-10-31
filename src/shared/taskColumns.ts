@@ -19,6 +19,7 @@ export const taskColumnIds = [
 export type TaskColumnId = (typeof taskColumnIds)[number]
 
 const hiddenByDefault: TaskColumnId[] = [
+  'complete',
   'scheduledDate',
   'startDate',
   'links',
@@ -27,9 +28,9 @@ const hiddenByDefault: TaskColumnId[] = [
   'doneDate',
 ]
 
-// Columns added after views were first saved. They stay hidden in those views
-// until turned on in Properties.
-export const optionalColumnIds: TaskColumnId[] = ['links']
+// Columns that stay hidden in views saved earlier until turned on in Properties:
+// Links came later, and the checkbox repeats what the Status column shows.
+export const optionalColumnIds: TaskColumnId[] = ['complete', 'links']
 
 export const createDefaultViewConfig = (
   overrides: Partial<ViewConfig> = {},

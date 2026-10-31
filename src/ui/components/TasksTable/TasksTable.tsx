@@ -101,6 +101,8 @@ const builtInColumns: ColumnDef<DataGridFeatures, Task>[] = [
     cell: ({ row }) => <TaskCompleteCell task={row.original} />,
     size: 40,
     ...fixedColumn,
+    // The Status column shows the same, so the checkbox is an optional property.
+    enableHiding: true,
     meta: { headerTitle: columnLabels.complete, cellClassName: 'px-0', headerClassName: 'px-0' },
   },
   {
