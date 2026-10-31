@@ -138,14 +138,11 @@
 
 /*
  * Each tag takes one of Obsidian's accent colors, picked from its name (see
- * tagLogic.ts). Its text mixes the accent with the normal text color: light
- * themes need more of the text color to keep a contrast of at least 4.5:1.
+ * tagLogic.ts). Its text is the normal text color with some of the accent, for
+ * a contrast of at least 7:1 on the tag's background in light and dark themes.
  */
 [data-tag-color] {
-  --tag-foreground: color-mix(in srgb, var(--tag-accent) 50%, var(--text-normal));
-}
-[data-tag-color]:is(.theme-dark *) {
-  --tag-foreground: color-mix(in srgb, var(--tag-accent) 70%, var(--text-normal));
+  --tag-foreground: color-mix(in srgb, var(--tag-accent) 30%, var(--text-normal));
 }
 [data-tag-color='red'] {
   --tag-accent: var(--color-red);

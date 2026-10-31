@@ -36,6 +36,8 @@ export type Task = {
   folder: string
   // Zero-based line number inside the note.
   line: number
+  // 1 for a task that is not inside another list item, 2 for one inside it, and so on.
+  level: number
   // Task text without the checkbox and the structured metadata. Keeps tags and links.
   description: string
   status: TaskStatus
@@ -86,6 +88,8 @@ export const taskFilterFields = [
   'folder',
   // The date of the daily note that holds the task. Notes that are not daily notes have none.
   'dailyNote',
+  // Whether the task is a subtask: inside another list item, a task or a bullet.
+  'level',
 ] as const
 export type BuiltInFilterField = (typeof taskFilterFields)[number]
 export const taskFilterFieldSchema = z.union([z.enum(taskFilterFields), inlineFieldIdSchema])
@@ -107,6 +111,12 @@ export const taskFilterOperators = [
 ] as const
 export const taskFilterOperatorSchema = z.enum(taskFilterOperators)
 export type TaskFilterOperator = z.infer<typeof taskFilterOperatorSchema>
+
+// The values of the level filter.
+export const taskLevels = ['first', 'subtask'] as const
+export type TaskLevel = (typeof taskLevels)[number]
+
+export const getTaskLevel = (task: Pick<Task, 'level'>): TaskLevel => (task.level === 1 ? 'first' : 'subtask')
 
 // Relative buckets keep saved date filters meaningful on every day.
 export const dateBuckets = [
@@ -173,6 +183,10 @@ export const tagSchema = z
   .max(200)
   .regex(/^[\p{L}\p{N}_/-]+$/u)
   .regex(/[^\p{N}]/u)
+
+// Tags in name order without case. Numbers compare by value: `2m` before `15m`.
+export const compareTags = (first: string, second: string): number =>
+  first.localeCompare(second, undefined, { numeric: true, sensitivity: 'base' })
 
 export const taskChangesSchema = z
   .object({

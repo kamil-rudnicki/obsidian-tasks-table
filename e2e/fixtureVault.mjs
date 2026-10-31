@@ -31,7 +31,6 @@ export const createFixtureVault = async (vaultPath, { bulkTasks = 2000 } = {}) =
     path.join(config, 'plugins', 'obsidian-tasks-plugin', 'data.json'),
     JSON.stringify({ taskFormat: 'dataview', setCreatedDate: true }),
   )
-  await writeFile(path.join(config, 'community-plugins.json'), JSON.stringify(['tasks-table']))
 
   await write(vaultPath, 'Projects/Website.md', [
     '# Website',

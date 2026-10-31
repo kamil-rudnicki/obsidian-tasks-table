@@ -1,5 +1,5 @@
 import { hashString } from '@shared/hash'
-import { tagSchema } from '@shared/taskTypes'
+import { compareTags, tagSchema } from '@shared/taskTypes'
 
 // Obsidian's accent colors, in the order of the color wheel.
 export const tagColors = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'pink'] as const
@@ -25,12 +25,12 @@ type TagEditorItems = {
   newTag: string | null
 }
 
-// The vault's tags that match the typed text, most used first, then selected
-// tags that no note has yet, then the typed tag to add.
+// The vault's tags and the selected ones that match the typed text, by name,
+// then the typed tag to add.
 export const getTagEditorItems = (options: string[], selected: string[], input: string): TagEditorItems => {
   const query = toTagQuery(input).toLocaleLowerCase()
   const matches = (tag: string): boolean => tag.toLocaleLowerCase().includes(query)
-  const items = [...new Set([...options, ...selected].filter(matches))]
+  const items = [...new Set([...options, ...selected].filter(matches))].sort(compareTags)
   const typed = toTagName(input)
   const newTag =
     typed !== null && !items.some((tag) => tag.toLocaleLowerCase() === typed.toLocaleLowerCase()) ? typed : null

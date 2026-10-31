@@ -1,5 +1,6 @@
 import { hashString } from '@shared/hash'
 import type { Task } from '@shared/taskTypes'
+import { createListLevelReader } from './listLevels'
 import { parseTaskLine } from './taskLineSyntax'
 
 export type IndexedTask = Task & { raw: string }
@@ -37,6 +38,7 @@ export const parseNoteTasks = (
   const occurrences = new Map<string, number>()
   const note = getNoteName(filePath)
   const folder = getNoteFolder(filePath)
+  const readListLevel = createListLevelReader()
   let fence: string | null = null
   let lineIndex = 0
 
@@ -65,6 +67,7 @@ export const parseNoteTasks = (
       continue
     }
 
+    const level = readListLevel(line)
     const parsed = parseTaskLine(line)
 
     if (!parsed || parsed.description === '') {
@@ -80,6 +83,8 @@ export const parseNoteTasks = (
       note,
       folder,
       line: lineIndex,
+      // Every task line is a list item, so the reader always has its level.
+      level: level ?? 1,
       raw: line,
       description: parsed.description,
       status: parsed.status,

@@ -10,12 +10,16 @@
   min-height: 0;
 }
 
-/* Popups of the tasks table: positioned against the window, above the workspace. */
+/*
+ * Popups of the tasks table: positioned against the window, above the workspace.
+ * The full width lets popups that fit their content keep labels such as "is not"
+ * on one line; with no height, the container itself takes no clicks.
+ */
 .tasks-table-portal {
   position: fixed;
   top: 0;
   left: 0;
-  width: 0;
+  right: 0;
   height: 0;
   z-index: var(--layer-menu);
 }

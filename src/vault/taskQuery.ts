@@ -9,6 +9,7 @@ import {
   type TaskListQuery,
   type TaskPriority,
   getInlineFieldKey,
+  getTaskLevel,
   type BuiltInSortField,
   type TaskSortField,
   type TaskStatus,
@@ -88,16 +89,13 @@ const getTextPredicate = (
   }
 }
 
-const getChoicePredicate = (
-  field: 'status' | 'priority' | 'note' | 'folder',
-  filter: TaskFilter,
-): TaskPredicate | null => {
+const getChoicePredicate = (valueOf: (task: IndexedTask) => string, filter: TaskFilter): TaskPredicate | null => {
   if (filter.operator === 'empty') {
-    return (task) => task[field] === ''
+    return (task) => valueOf(task) === ''
   }
 
   if (filter.operator === 'not_empty') {
-    return (task) => task[field] !== ''
+    return (task) => valueOf(task) !== ''
   }
 
   const values = new Set(getStringValues(filter))
@@ -109,10 +107,10 @@ const getChoicePredicate = (
   switch (filter.operator) {
     case 'is':
     case 'is_any_of':
-      return (task) => values.has(task[field])
+      return (task) => values.has(valueOf(task))
     case 'is_not':
     case 'is_not_any_of':
-      return (task) => !values.has(task[field])
+      return (task) => !values.has(valueOf(task))
     default:
       return null
   }
@@ -313,7 +311,11 @@ export const getFilterPredicate = (
 
   const choiceField = choiceFields[filter.field]
   if (choiceField) {
-    return getChoicePredicate(choiceField, filter)
+    return getChoicePredicate((task) => task[choiceField], filter)
+  }
+
+  if (filter.field === 'level') {
+    return getChoicePredicate(getTaskLevel, filter)
   }
 
   return textField ? getTextPredicate(textField, filter) : null

@@ -879,7 +879,13 @@ interface SelectOptionsPopoverProps<T = unknown> {
   onChange: (values: T[]) => void
   onClose?: () => void
   inline?: boolean
+  // Whether several values can be selected; follows the operator when it says.
+  multiple?: boolean
 }
+
+// An operator such as "is any of" can say that it takes several values.
+const operatorTakesSeveral = <T,>(field: FilterFieldConfig<T>, operator: string) =>
+  field.operators?.find((op) => op.value === operator)?.supportsMultiple
 
 function SelectOptionsPopover<T = unknown>({
   field,
@@ -887,6 +893,7 @@ function SelectOptionsPopover<T = unknown>({
   onChange,
   onClose,
   inline = false,
+  multiple,
 }: SelectOptionsPopoverProps<T>) {
   const [open, setOpen] = useState(false)
   const [searchInput, setSearchInput] = useState("")
@@ -918,7 +925,8 @@ function SelectOptionsPopover<T = unknown>({
     resolveSelected,
   } = useFieldOptions(field, searchInput, inline || open)
 
-  const isMultiSelect = field.type === "multiselect" || values.length > 1
+  const isMultiSelect =
+    multiple ?? (field.type === "multiselect" || values.length > 1)
   const effectiveValues =
     (field.value !== undefined ? (field.value as T[]) : values) || []
 
@@ -1246,14 +1254,15 @@ function FilterValueSelector<T = unknown>({
     )
   }
 
-  if (field.type === "select" || field.type === "multiselect") {
-    return (
-      <SelectOptionsPopover field={field} values={values} onChange={onChange} />
-    )
-  }
+  const multiple = operatorTakesSeveral(field, operator)
 
   return (
-    <SelectOptionsPopover field={field} values={values} onChange={onChange} />
+    <SelectOptionsPopover
+      field={field}
+      values={values}
+      onChange={onChange}
+      multiple={multiple}
+    />
   )
 }
 export interface Filter<T = unknown> {
@@ -2037,7 +2046,11 @@ export function Filters<T = unknown>({
                           fieldHasOptions(field)
 
                         if (hasSubMenu) {
-                          const isMultiSelect = field.type === "multiselect"
+                          const isMultiSelect =
+                            operatorTakesSeveral(
+                              field,
+                              field.defaultOperator || "is_any_of"
+                            ) ?? field.type === "multiselect"
                           const fieldKey = field.key as string
                           const sessionFilterId = sessionFilterIds[fieldKey]
                           const sessionFilter = sessionFilterId

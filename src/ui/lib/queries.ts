@@ -21,7 +21,7 @@ export const taskListQueryOptions = (query: TaskListQuery) =>
     placeholderData: keepPreviousData,
   })
 
-// The vault's tags that contain `search`, most used first.
+// The vault's tags that contain `search`, by name.
 export const tagOptionsQueryOptions = (search: string) =>
   queryOptions({
     queryKey: queryKeys.taskOptions({ field: 'tags', search }),

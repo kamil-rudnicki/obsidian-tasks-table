@@ -3,7 +3,7 @@ import { getTagColor } from '@/logic/tagLogic'
 
 // `data-tag-color` sets `--tag-accent` and `--tag-foreground` (see app.css). The
 // text color is important: highlighted menu items set the color of all their content.
-export const tagColorClassName = 'bg-(--tag-accent)/15 text-(--tag-foreground)!'
+export const tagColorClassName = 'bg-(--tag-accent)/18 text-(--tag-foreground)!'
 
 // A tag pill shaped like Obsidian's own tags, in the tag's color.
 export const TagBadge = ({ tag, className }: { tag: string; className?: string }) => (

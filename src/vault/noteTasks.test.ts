@@ -37,6 +37,21 @@ describe('parseNoteTasks', () => {
     expect(tasks[1].id).toBe(createTaskId('note.md', 'Same', 1))
   })
 
+  test('reads how deep each task is nested', () => {
+    const tasks = parseNoteTasks(
+      'note.md',
+      ['- [ ] Trip', '\t- [ ] Hotel', '\t\t- [ ] Prices', '- Groceries', '  - [ ] Milk', '> - [ ] Quoted'].join('\n'),
+    )
+
+    expect(tasks.map((task) => [task.description, task.level])).toEqual([
+      ['Trip', 1],
+      ['Hotel', 2],
+      ['Prices', 3],
+      ['Milk', 2],
+      ['Quoted', 1],
+    ])
+  })
+
   test('keeps the id when the status or metadata changes', () => {
     const [before] = parseNoteTasks('note.md', '- [ ] Call')
     const [after] = parseNoteTasks('note.md', '- [x] Call ⏫ ✅ 2026-10-31')

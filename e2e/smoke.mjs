@@ -6,15 +6,17 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { createFixtureVault, installPlugin } from './fixtureVault.mjs'
-import { closeSettings, launchObsidian } from './obsidian.mjs'
+import { createFixtureVault } from './fixtureVault.mjs'
+import { launchObsidian } from './obsidian.mjs'
 
 const vaultPath = await mkdtemp(path.join(tmpdir(), 'tasks-table-smoke-'))
 await createFixtureVault(vaultPath)
-await installPlugin(vaultPath)
 
 const obsidian = await launchObsidian({ vaultPath })
 const { page } = obsidian
+// Obsidian's notices, such as its indexing progress, can cover the toolbar's
+// right edge. They only inform, so clicks go through them.
+await page.addStyleTag({ content: '.notice-container { pointer-events: none; }' })
 // Every action here takes well under a second; a broken step fails after 5s, not Playwright's 30s.
 page.setDefaultTimeout(5000)
 const errors = []
@@ -188,6 +190,20 @@ try {
     await root.getByRole('button', { name: 'Remove filter' }).click()
   })
 
+  await step('filters first-level tasks and subtasks', async () => {
+    const resultCount = async () =>
+      Number((await root.getByText(/^\d[\d,]* results?$/u).first().textContent()).replace(/\D/gu, ''))
+    const allCount = await resultCount()
+    // "Book venue" is the only subtask in the fixture vault.
+    await addFilter('Level', 'Subtask')
+    await root.getByText('1 result', { exact: true }).waitFor()
+    assert.equal(await root.locator('tbody tr', { hasText: 'Book venue' }).count(), 1)
+    await root.getByRole('button', { name: 'Remove filter' }).click()
+    await addFilter('Level', 'First level')
+    await waitFor(async () => (await resultCount()) === allCount - 1, 'First level did not leave out the subtask.')
+    await root.getByRole('button', { name: 'Remove filter' }).click()
+  })
+
   await step('shows edits made in notes', async () => {
     await root.getByRole('button', { name: 'Search' }).click()
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Pay rent')
@@ -283,6 +299,38 @@ try {
     await page.keyboard.press('Escape')
   })
 
+  await step('switches a filter between is and is any of', async () => {
+    const statusFilter = () =>
+      page.evaluate(async () => {
+        const views = await window.app.plugins.plugins['tasks-table'].services.invoke('views:list', null)
+        // Views save a moment after the last change; until then there may be no filter.
+        const filter = views.find((view) => view.name === 'All tasks').config.filters[0]
+        return filter ? `${filter.operator} ${filter.values.join()}` : null
+      })
+    await root.getByRole('button', { name: 'is', exact: true }).click()
+    // The operator menu only; another menu may still be closing.
+    const operators = page
+      .getByRole('menu')
+      .filter({ has: page.getByRole('menuitem', { name: 'is not any of' }) })
+      .getByRole('menuitem')
+    await operators.last().waitFor()
+    assert.deepEqual(await operators.allTextContents(), ['is', 'is not', 'is any of', 'is not any of'])
+    // Each label stays on one line.
+    const heights = await operators.evaluateAll((items) =>
+      items.map((item) => Math.round(item.getBoundingClientRect().height)),
+    )
+    assert.equal(new Set(heights).size, 1, `Operator rows have different heights: ${heights.join()}`)
+    await page.getByRole('menuitem', { name: 'is any of', exact: true }).click()
+    // The filter chip's value; status cells in the table have the same name.
+    await root.locator('[data-slot=button-group]').getByRole('button', { name: 'Status: Done' }).click()
+    await page.getByRole('option', { name: 'Cancelled' }).click()
+    await page.keyboard.press('Escape')
+    await waitFor(async () => (await statusFilter()) === 'is_any_of done,cancelled', 'Is any of did not keep two values.')
+    await root.getByRole('button', { name: 'is any of', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'is', exact: true }).click()
+    await waitFor(async () => (await statusFilter()) === 'is done', 'Is did not keep only the first value.')
+  })
+
   await step('saves view changes on its own', async () => {
     // Earlier steps can leave the table scrolled sideways, with the Task column's edge out of view.
     await root.locator('[data-slot=scroll-area-viewport]').first().evaluate((viewport) => {
@@ -336,29 +384,29 @@ try {
     assert.ok(existsSync(path.join(vaultPath, '.obsidian/plugins/tasks-table/tasks-table.sqlite')))
   })
 
-  await step('shows the settings in Obsidian’s settings', async () => {
-    await page.evaluate(() => {
-      window.app.setting.open()
-      window.app.setting.openTabById('tasks-table')
-    })
-    // Obsidian 1.15 shows settings in a window of its own, which it may reuse;
-    // older versions show a modal in the main window.
-    const findSettings = async () => {
-      for (const candidate of page.context().pages()) {
-        if ((await candidate.title().catch(() => '')).startsWith('Settings')) {
-          return candidate
+  await step('shows the settings tab', async () => {
+    // Rendered in the main window: Obsidian 1.15 shows its settings in a window
+    // of its own, which would take the focus from the app in use.
+    const readTab = () =>
+      page.evaluate(() => {
+        const tab = window.app.setting.pluginTabs.find((candidate) => candidate.id === 'tasks-table')
+        if (!tab.containerEl.hasChildNodes()) {
+          tab.display()
         }
-      }
-      return (await page.locator('.mod-settings').count()) > 0 ? page : null
-    }
-    const settingsPage = await waitFor(findSettings, 'The settings did not open.')
-    await settingsPage.getByText('Write dates and priority as').waitFor()
-    await settingsPage.getByText(/\d[\d,]* tasks in \d+ notes/u).waitFor()
-    await closeSettings(page)
+        return tab.containerEl.textContent
+      })
+    await waitFor(
+      async () => {
+        const text = await readTab()
+        return text.includes('Write dates and priority as') && /\d[\d,]* tasks in \d+ notes/u.test(text)
+      },
+      'The settings tab did not show its settings and the index status.',
+    )
+    await page.evaluate(() => window.app.setting.pluginTabs.find((tab) => tab.id === 'tasks-table').hide())
   })
 
   await step('logs no errors', () => {
-    assert.deepEqual(errors, [])
+    assert.deepEqual(errors, [], `Errors: ${errors.join(' | ')}`)
   })
 } finally {
   await obsidian.close()

@@ -37,6 +37,7 @@ const task: Task = {
   note: 'a',
   folder: '',
   line: 0,
+  level: 1,
   description: 'A',
   status: 'todo',
   statusSymbol: ' ',

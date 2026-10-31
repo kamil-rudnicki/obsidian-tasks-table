@@ -1,4 +1,4 @@
-import { getInlineFieldKey, type Task, type TaskListQuery, type TaskOptionsInput } from '@shared/taskTypes'
+import { compareTags, getInlineFieldKey, type Task, type TaskListQuery, type TaskOptionsInput } from '@shared/taskTypes'
 import type { IndexedTask } from './noteTasks'
 import { createTaskComparator, createTaskPredicate, type TaskQueryContext } from './taskQuery'
 
@@ -13,6 +13,9 @@ type NoteEntry = {
   tasks: IndexedTask[]
   signature: string
 }
+
+// Bounds the answer for vaults with very many tags.
+const maxTagOptions = 1000
 
 const getSignature = (tasks: IndexedTask[]): string =>
   tasks.map((task) => `${task.id}:${task.line}:${task.raw}`).join('\n')
@@ -98,7 +101,7 @@ export class TaskIndex {
   listOptions({ field, search }: TaskOptionsInput, limit = 50): string[] {
     const query = search.trim().toLocaleLowerCase()
     const matches = (value: string): boolean => value.toLocaleLowerCase().includes(query)
-    // Value -> [display value, rank]. A higher rank is listed first.
+    // Value -> [display value, rank]. A higher rank is listed first; tags are listed by name.
     const options = new Map<string, { value: string; rank: number | string }>()
     const fieldKey = getInlineFieldKey(field)
     // Counts a value without case; the most used values are listed first.
@@ -133,6 +136,14 @@ export class TaskIndex {
           count(task.folder)
         }
       }
+    }
+
+    // Tags are listed by name, all of them: a list cut off at some letter would hide tags.
+    if (field === 'tags') {
+      return [...options.values()]
+        .map((option) => option.value)
+        .sort(compareTags)
+        .slice(0, maxTagOptions)
     }
 
     return [...options.values()]

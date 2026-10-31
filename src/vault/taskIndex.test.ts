@@ -200,6 +200,18 @@ describe('task index', () => {
     expect(index.listOptions({ field: 'note', search: '' })).toEqual(['app', '2026-10-30'])
     expect(index.listOptions({ field: 'folder', search: 'per' })).toEqual(['periodic/daily'])
   })
+
+  test('lists every tag by name, numbers by value', () => {
+    const index = new TaskIndex()
+    const tags = Array.from({ length: 60 }, (_, number) => `#tag/${number}m`)
+    const content = `- [ ] Many ${tags.join(' ')} #Work #apple`
+    index.replaceNoteTasks({ path: 'tags.md', mtimeMs: 1, size: content.length }, parseNoteTasks('tags.md', content))
+
+    const options = index.listOptions({ field: 'tags', search: '' })
+    expect(options).toHaveLength(62)
+    expect(options.slice(0, 4)).toEqual(['apple', 'tag/0m', 'tag/1m', 'tag/2m'])
+    expect(options.slice(-2)).toEqual(['tag/59m', 'Work'])
+  })
 })
 
 describe('inline fields', () => {
@@ -251,5 +263,21 @@ describe('inline fields', () => {
       { key: 'estimate', count: 2 },
     ])
     expect(index.listOptions({ field: 'field:type', search: '' })).toEqual(['Home', 'work'])
+  })
+})
+
+describe('level filter', () => {
+  test('keeps first-level tasks or subtasks', () => {
+    const index = new TaskIndex()
+    const content = ['- [ ] Trip', '\t- [ ] Hotel', '- Groceries', '  - [ ] Milk', '- [ ] Pack'].join('\n')
+    index.replaceNoteTasks({ path: 'note.md', mtimeMs: 1, size: content.length }, parseNoteTasks('note.md', content))
+    const list = (values: string[]) =>
+      index
+        .listTasks({ filters: [{ id: 'a', field: 'level', operator: 'is', values }], sorting: [], search: '' }, today, context)
+        .map((task) => task.description)
+
+    expect(list(['first'])).toEqual(['Trip', 'Pack'])
+    expect(list(['subtask'])).toEqual(['Hotel', 'Milk'])
+    expect(list([])).toEqual(['Trip', 'Hotel', 'Milk', 'Pack'])
   })
 })

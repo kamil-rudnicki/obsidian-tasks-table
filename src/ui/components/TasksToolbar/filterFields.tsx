@@ -7,18 +7,12 @@ import {
   FlagIcon,
   FolderIcon,
   HashIcon,
+  ListTreeIcon,
   TextIcon,
   type LucideIcon,
 } from 'lucide-react'
-import {
-  taskFilterSchema,
-  taskPriorities,
-  taskStatuses,
-  toInlineFieldId,
-  type TaskFilter,
-  type TaskOptionsInput,
-} from '@shared/taskTypes'
-import type { Filter, FilterFieldConfig, FilterI18nConfig, FilterOperator } from '@/components/reui/filters'
+import { taskLevels, taskPriorities, taskStatuses, toInlineFieldId, type TaskOptionsInput } from '@shared/taskTypes'
+import type { FilterFieldConfig, FilterI18nConfig, FilterOperator } from '@/components/reui/filters'
 import { TagColorDot } from '@/components/TagBadge/TagBadge'
 import { TaskPriorityIcon } from '@/components/TaskCells/TaskPriorityIcon'
 import { TaskStatusIcon } from '@/components/TaskCells/TaskStatusIcon'
@@ -27,13 +21,17 @@ import {
   dailyNoteBucketLabels,
   filterLabels,
   getDateBucketLabels,
+  levelLabels,
   priorityLabels,
   statusLabels,
 } from '@/logic/taskLabels'
 
+// "is" and "is not" take one value; "is any of" and "is not any of" take several.
 const choiceOperators: FilterOperator[] = [
-  { value: 'is_any_of', label: 'is' },
-  { value: 'is_not_any_of', label: 'is not' },
+  { value: 'is', label: 'is', supportsMultiple: false },
+  { value: 'is_not', label: 'is not', supportsMultiple: false },
+  { value: 'is_any_of', label: 'is any of', supportsMultiple: true },
+  { value: 'is_not_any_of', label: 'is not any of', supportsMultiple: true },
 ]
 
 const dateOperators: FilterOperator[] = [
@@ -80,7 +78,7 @@ const dateField = (
   type: 'select',
   searchable: false,
   operators: dateOperators,
-  defaultOperator: 'is_any_of',
+  defaultOperator: 'is',
   className: 'w-40',
   options: getDateBucketLabels(key),
 })
@@ -100,7 +98,7 @@ const builtInFilterFields: FilterFieldConfig[] = [
     type: 'select',
     searchable: false,
     operators: choiceOperators,
-    defaultOperator: 'is_any_of',
+    defaultOperator: 'is',
     className: 'w-40',
     options: taskStatuses.map((status) => ({
       value: status,
@@ -115,7 +113,7 @@ const builtInFilterFields: FilterFieldConfig[] = [
     type: 'select',
     searchable: false,
     operators: choiceOperators,
-    defaultOperator: 'is_any_of',
+    defaultOperator: 'is',
     className: 'w-36',
     options: taskPriorities.map((priority) => ({
       value: priority,
@@ -143,7 +141,7 @@ const builtInFilterFields: FilterFieldConfig[] = [
     type: 'select',
     searchable: true,
     operators: choiceOperators,
-    defaultOperator: 'is_any_of',
+    defaultOperator: 'is',
     className: 'w-48',
     loadOptions: loadOptions('note'),
   },
@@ -154,7 +152,7 @@ const builtInFilterFields: FilterFieldConfig[] = [
     type: 'select',
     searchable: false,
     operators: choiceOperators,
-    defaultOperator: 'is_any_of',
+    defaultOperator: 'is',
     className: 'w-40',
     options: dailyNoteBucketLabels,
   },
@@ -165,9 +163,21 @@ const builtInFilterFields: FilterFieldConfig[] = [
     type: 'select',
     searchable: true,
     operators: choiceOperators,
-    defaultOperator: 'is_any_of',
+    defaultOperator: 'is',
     className: 'w-48',
     loadOptions: loadOptions('folder'),
+  },
+  {
+    key: 'level',
+    label: filterLabels.level,
+    icon: fieldIcon(ListTreeIcon),
+    type: 'select',
+    searchable: false,
+    // A task is at the first level or a subtask, so one value is enough.
+    operators: [{ value: 'is', label: 'is', supportsMultiple: false }],
+    defaultOperator: 'is',
+    className: 'w-36',
+    options: taskLevels.map((level) => ({ value: level, label: levelLabels[level] })),
   },
   dateField('createdDate'),
   dateField('doneDate'),
@@ -181,7 +191,7 @@ const inlineField = (key: string): FilterFieldConfig => ({
   type: 'select',
   searchable: true,
   operators: inlineFieldOperators,
-  defaultOperator: 'is_any_of',
+  defaultOperator: 'is',
   className: 'w-44',
   loadOptions: loadOptions(toInlineFieldId(key)),
 })
@@ -191,12 +201,6 @@ export const createFilterFields = (fieldKeys: string[]): FilterFieldConfig[] => 
   ...builtInFilterFields,
   ...fieldKeys.map(inlineField),
 ]
-
-export const toTaskFilters = (filters: Filter[]): TaskFilter[] =>
-  filters.flatMap((filter) => {
-    const result = taskFilterSchema.safeParse(filter)
-    return result.success ? [result.data] : []
-  })
 
 export const filterI18n: Partial<FilterI18nConfig> = {
   searchFields: 'Filter by…',

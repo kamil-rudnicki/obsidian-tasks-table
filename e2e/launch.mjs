@@ -3,7 +3,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { createFixtureVault, installPlugin } from './fixtureVault.mjs'
+import { createFixtureVault } from './fixtureVault.mjs'
 import { launchObsidian } from './obsidian.mjs'
 
 // A generated fixture vault is removed on exit; a vault passed in is kept.
@@ -12,9 +12,13 @@ const vaultPath = process.argv[2] ?? (await mkdtemp(path.join(tmpdir(), 'tasks-t
 if (isFixtureVault) {
   await createFixtureVault(vaultPath)
 }
-await installPlugin(vaultPath)
 
-const obsidian = await launchObsidian({ vaultPath, port: Number(process.env.PORT ?? 9333) })
+// The app in use keeps the focus; `E2E_FOCUS=1` lets you work in this Obsidian by hand.
+const obsidian = await launchObsidian({
+  vaultPath,
+  port: Number(process.env.PORT ?? 9333),
+  returnFocus: process.env.E2E_FOCUS !== '1',
+})
 console.log(JSON.stringify({ vaultPath, port: obsidian.port, userDataDir: obsidian.userDataDir }))
 
 const stop = async () => {

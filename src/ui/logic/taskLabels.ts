@@ -5,6 +5,7 @@ import {
   type BuiltInSortField,
   type DateBucket,
   type TaskPriority,
+  type TaskLevel,
   type TaskSortField,
   type TaskStatus,
 } from '@shared/taskTypes'
@@ -55,6 +56,13 @@ export const filterLabels: Record<BuiltInFilterField, string> = {
   note: 'Note',
   folder: 'Folder',
   dailyNote: 'Daily note',
+  level: 'Level',
+}
+
+// "Level is First level" keeps the tasks that are not inside another list item.
+export const levelLabels: Record<TaskLevel, string> = {
+  first: 'First level',
+  subtask: 'Subtask',
 }
 
 // "Daily note is Any day" keeps tasks from daily notes; "is not" keeps the others.

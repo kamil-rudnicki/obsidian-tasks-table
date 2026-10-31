@@ -31,11 +31,11 @@ describe('toTagName', () => {
 })
 
 describe('getTagEditorItems', () => {
-  const options = ['work', 'home', 'type/task']
+  const options = ['home', 'type/task', 'work']
 
-  test('lists every tag without typed text', () => {
-    expect(getTagEditorItems(options, ['new-one'], '')).toEqual({
-      items: ['work', 'home', 'type/task', 'new-one'],
+  test('lists every tag by name without typed text', () => {
+    expect(getTagEditorItems(options, ['new-one', 'Apple'], '')).toEqual({
+      items: ['Apple', 'home', 'new-one', 'type/task', 'work'],
       newTag: null,
     })
   })
