@@ -39,6 +39,8 @@ Open the table with the ribbon icon or the **Tasks Table: Open table** command. 
 - Settings and views are stored in an SQLite database, `tasks-table.sqlite`, in the plugin folder (`<vault>/.obsidian/plugins/tasks-table/`). It has a `settings` table with one `name`/`value` row per setting and a `views` table. It syncs with the rest of the vault's configuration.
 - Tasks are not stored. The plugin builds an in-memory index from the notes when Obsidian starts and keeps it current from Obsidian's file events. Like the Tasks plugin, it uses Obsidian's metadata cache to skip notes without tasks. On a vault with 3,000 notes and 15,000 tasks, indexing takes about 0.4 seconds.
 - The plugin works offline. It makes no network requests and sends no data anywhere.
+- `main.js` contains sql.js's WebAssembly binary (SQLite), stored as base64 and decoded when the plugin loads. The sql.js loader also has code that downloads the `.wasm` file with `fetch` or `XMLHttpRequest`; the plugin never runs it, as it gives sql.js the bundled binary. Other `fetch` names in `main.js` are TanStack Query methods, not network requests.
+- The plugin reads every Markdown file that has tasks, to index them, and writes to the system clipboard only when you copy table cells.
 
 Requires Obsidian 1.13 or later, on desktop and mobile.
 
