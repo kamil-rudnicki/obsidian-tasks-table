@@ -86,7 +86,7 @@ const headerIcon = (Icon: LucideIcon) => <Icon className='size-3.5 text-muted-fo
 // Every header shows the property's icon, as in Bases.
 const header =
   (title: string, Icon: LucideIcon): ColumnDef<DataGridFeatures, Task>['header'] =>
-  ({ column }) => <DataGridColumnHeader title={title} icon={headerIcon(Icon)} column={column} />
+  ({ column }) => <DataGridColumnHeader title={title} icon={headerIcon(Icon)} column={column} hideable />
 
 const fixedColumn = {
   enableSorting: false,
@@ -236,6 +236,7 @@ const dataGridI18n: DataGridI18nOverrides = {
     columnsMenu: 'Properties',
     toggleColumns: 'Properties',
     unpinColumn: (title) => `Unpin ${title}`,
+    hideColumn: 'Hide property',
     loading: 'Loading tasks…',
     empty: 'No tasks',
   },

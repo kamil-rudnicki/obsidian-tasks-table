@@ -6,6 +6,7 @@ export interface DataGridI18nLabels {
   pinColumnEnd: string
   moveColumnStart: string
   moveColumnEnd: string
+  hideColumn: string
   columnsMenu: string
   unpinColumn: (title: string) => string
   toggleColumns: string
@@ -52,6 +53,7 @@ const DEFAULT_DATA_GRID_LABELS: DataGridI18nLabels = {
   pinColumnEnd: "Pin to right",
   moveColumnStart: "Move to left",
   moveColumnEnd: "Move to right",
+  hideColumn: "Hide column",
   columnsMenu: "Columns",
   unpinColumn: (title) => `Unpin ${title} column`,
   toggleColumns: "Toggle Columns",

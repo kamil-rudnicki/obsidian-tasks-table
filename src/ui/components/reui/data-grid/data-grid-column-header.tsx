@@ -29,7 +29,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon, CheckIcon, ArrowLeftToLineIcon, ArrowRightToLineIcon, ArrowLeftIcon, ArrowRightIcon, Settings2Icon, PinOffIcon } from "lucide-react"
+import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon, CheckIcon, ArrowLeftToLineIcon, ArrowRightToLineIcon, ArrowLeftIcon, ArrowRightIcon, Settings2Icon, PinOffIcon, EyeOffIcon } from "lucide-react"
 
 interface DataGridColumnHeaderProps<
   TData extends object,
@@ -43,6 +43,8 @@ interface DataGridColumnHeaderProps<
   pinnable?: boolean
   filter?: ReactNode
   visibility?: boolean
+  /** Adds "Hide column" to the menu when the column can hide. */
+  hideable?: boolean
 }
 
 // Unpinning moves a column into another header list (pinned, windowed center),
@@ -57,6 +59,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
   className,
   filter,
   visibility = false,
+  hideable = false,
 }: DataGridColumnHeaderProps<TData, TValue>) {
   const { i18n, isLoading, table, props } = useDataGrid()
   const resolvedTitle = title ?? getColumnHeaderLabel(column)
@@ -204,7 +207,10 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
       table.getEndVisibleLeafColumns().length === 0
     )
 
+  const canHide = hideable && column.getCanHide()
+
   const hasControls =
+    canHide ||
     props.tableLayout?.columnsMovable ||
     (props.tableLayout?.columnsVisibility && visibility) ||
     (props.tableLayout?.columnsPinnable && canPin) ||
@@ -328,6 +334,20 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
       hasPreviousSection = true
     }
 
+    // Hide section
+    if (canHide) {
+      if (hasPreviousSection) {
+        items.push(<DropdownMenuSeparator key="sep-hide" />)
+      }
+      items.push(
+        <DropdownMenuItem key="hide" onClick={() => column.toggleVisibility(false)}>
+          <EyeOffIcon className="size-3.5!" aria-hidden="true" />
+          <span>{i18n.labels.hideColumn}</span>
+        </DropdownMenuItem>
+      )
+      hasPreviousSection = true
+    }
+
     // Visibility section
     if (props.tableLayout?.columnsVisibility && visibility) {
       if (hasPreviousSection) {
@@ -378,6 +398,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
     canMoveLeft,
     canMoveRight,
     visibility,
+    canHide,
     table,
     leftNeighbour,
     rightNeighbour,
