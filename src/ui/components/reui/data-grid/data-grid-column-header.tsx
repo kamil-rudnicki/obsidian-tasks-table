@@ -167,13 +167,14 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
     }
   }
 
+  // A narrow column cuts its title with an ellipsis; the icons keep their size.
   const headerLabelClassName = cn(
-    "text-secondary-foreground/80 inline-flex h-full items-center gap-1.5 font-normal [&_svg]:opacity-60 text-[0.8125rem] leading-[calc(1.125/0.8125)] [&_svg]:size-3.5",
+    "text-secondary-foreground/80 inline-flex h-full min-w-0 items-center gap-1.5 font-normal [&_svg]:opacity-60 [&_svg]:shrink-0 text-[0.8125rem] leading-[calc(1.125/0.8125)] [&_svg]:size-3.5",
     className
   )
 
   const headerButtonClassName = cn(
-    "text-secondary-foreground/80 hover:bg-secondary data-[state=open]:bg-secondary hover:text-foreground data-[state=open]:text-foreground px-2 font-normal h-6 rounded-lg",
+    "text-secondary-foreground/80 hover:bg-secondary data-[state=open]:bg-secondary hover:text-foreground data-[state=open]:text-foreground px-2 font-normal h-6 rounded-lg min-w-0 max-w-full shrink",
     className
   )
 
@@ -386,7 +387,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
 
   if (hasControls) {
     return (
-      <div className="-ms-2 flex h-full items-center justify-between gap-1.5">
+      <div className="-ms-2 flex h-full min-w-0 items-center justify-between gap-1.5">
         <DropdownMenu>
           <DropdownMenuTrigger
             ref={menuTriggerRef}
@@ -397,7 +398,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
                 disabled={isLoading}
               >
                 {icon && icon}
-                {resolvedTitle}
+                <span className="truncate">{resolvedTitle}</span>
                 {sortIcon}
               </Button>
             }
@@ -442,7 +443,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
 
   if (canSort || (props.tableLayout?.columnsResizable && canResize)) {
     return (
-      <div className="-ms-2 flex h-full items-center">
+      <div className="-ms-2 flex h-full min-w-0 items-center">
         <Button
           variant="ghost"
           className={headerButtonClassName}
@@ -450,7 +451,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
           onClick={handleSort}
         >
           {icon && icon}
-          {resolvedTitle}
+          <span className="truncate">{resolvedTitle}</span>
           {sortIcon}
         </Button>
       </div>
@@ -460,7 +461,7 @@ function DataGridColumnHeaderInner<TData extends object, TValue>({
   return (
     <div className={headerLabelClassName}>
       {icon && icon}
-      {resolvedTitle}
+      <span className="truncate">{resolvedTitle}</span>
     </div>
   )
 }
