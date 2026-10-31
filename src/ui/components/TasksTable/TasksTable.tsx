@@ -19,10 +19,17 @@ import {
   type ColumnOrderState,
   type ColumnSizingState,
   type ColumnVisibilityState,
+  type ExpandedState,
   type SortingState,
   type Updater,
 } from '@tanstack/react-table'
-import { taskSortFieldSchema, toInlineFieldId, type Task, type TaskSort } from '@shared/taskTypes'
+import {
+  taskSortFieldSchema,
+  toInlineFieldId,
+  type Task,
+  type TaskGroupField,
+  type TaskSort,
+} from '@shared/taskTypes'
 import type { View } from '@shared/viewTypes'
 import {
   DataGrid,
@@ -47,7 +54,15 @@ import { TaskReadOnlyDateCell } from '@/components/TaskCells/TaskReadOnlyDateCel
 import { TaskStatusCell } from '@/components/TaskCells/TaskStatusCell'
 import { TaskTagsCell } from '@/components/TaskCells/TaskTagsCell'
 import { TaskTitleCell } from '@/components/TaskCells/TaskTitleCell'
+import { TaskGroupRow } from './TaskGroupRow'
 import { getColumnOrder, getColumnVisibility } from '@/logic/fieldColumnsLogic'
+import {
+  getCollapsedGroups,
+  getExpandedGroups,
+  getGroupKey,
+  groupColumnId,
+  groupTasks,
+} from '@/logic/groupingLogic'
 import { updateTask } from '@/logic/taskActions'
 import { columnLabels } from '@/logic/taskLabels'
 import { updateViewConfig } from '@/logic/viewActions'
@@ -194,6 +209,22 @@ const createFieldColumn = (key: string): ColumnDef<DataGridFeatures, Task> => ({
   meta: { headerTitle: key },
 })
 
+// The hidden column the rows are grouped by; each group's header renders in its place.
+const createGroupColumn = (field: TaskGroupField): ColumnDef<DataGridFeatures, Task> => ({
+  id: groupColumnId,
+  accessorFn: (task) => getGroupKey(task, field),
+  header: () => null,
+  cell: () => null,
+  enableHiding: false,
+  enableSorting: false,
+  enableResizing: false,
+  meta: { headerTitle: 'Group' },
+})
+
+// The group column is never shown, so the view does not save it.
+const withoutGroupColumn = <Value,>(state: Record<string, Value>): Record<string, Value> =>
+  Object.fromEntries(Object.entries(state).filter(([columnId]) => columnId !== groupColumnId))
+
 // Sentence case and the words this table uses, like "properties" for columns.
 const dataGridI18n: DataGridI18nOverrides = {
   labels: {
@@ -230,28 +261,55 @@ const handleCellsChange = ({ changes }: DataGridCellsChangeDetails<Task>): void 
 
 export const TasksTable = ({ view, tasks, fieldKeys, isLoading, emptyMessage, toolbar }: TasksTableProps) => {
   const { config } = view
+  const { grouping, collapsedGroups } = config
+  const groupField = grouping?.field ?? null
   // TanStack Table rebuilds its models when `columns` changes identity; `fieldKeys`
   // keeps its identity until the vault's field names change.
   const columns = useMemo(
-    () => [...builtInColumns.slice(0, -1), ...fieldKeys.map(createFieldColumn), ...builtInColumns.slice(-1)],
-    [fieldKeys],
+    () => [
+      ...builtInColumns.slice(0, -1),
+      ...fieldKeys.map(createFieldColumn),
+      ...builtInColumns.slice(-1),
+      ...(groupField === null ? [] : [createGroupColumn(groupField)]),
+    ],
+    [fieldKeys, groupField],
   )
-  const columnVisibility = getColumnVisibility(config.columnVisibility, fieldKeys)
+  // TanStack lists groups in the order their first rows come, so the rows
+  // arrive in group order, each group keeping the view's sort.
+  const groups = useMemo(() => (grouping ? groupTasks(tasks, grouping) : null), [tasks, grouping])
+  const data = useMemo(() => (groups ? groups.flatMap((group) => group.tasks) : tasks), [groups, tasks])
+  const groupKeys = groups?.map((group) => group.key) ?? []
+  const expanded = getExpandedGroups(groupKeys, collapsedGroups)
+  const columnVisibility = {
+    ...getColumnVisibility(config.columnVisibility, fieldKeys),
+    [groupColumnId]: false,
+  }
   const columnOrder = getColumnOrder(
     config.columnOrder,
-    columns.map((column) => column.id ?? ''),
+    columns.map((column) => column.id ?? '').filter((columnId) => columnId !== groupColumnId),
   )
   const table = useTable({
     features: dataGridFeatures,
     columns,
-    data: tasks,
+    data,
     getRowId: (task) => task.id,
     state: {
       sorting: config.sorting,
       columnVisibility,
       columnOrder,
       columnSizing: config.columnSizing,
+      grouping: groupField === null ? [] : [groupColumnId],
+      expanded,
     },
+    // Grouped rows keep the columns in place, and a change of tasks keeps the collapsed groups.
+    groupedColumnMode: false,
+    autoResetExpanded: false,
+    // A group's header has no cells to select or edit.
+    enableCellSelection: (cell) => !cell.row.getIsGrouped(),
+    onExpandedChange: (updater) =>
+      updateViewConfig(view.id, {
+        collapsedGroups: getCollapsedGroups(resolve<ExpandedState>(updater, expanded), groupKeys, collapsedGroups),
+      }),
     // The task index sorts and filters; the table shows every row it returns, virtualized.
     manualSorting: true,
     manualFiltering: true,
@@ -262,11 +320,11 @@ export const TasksTable = ({ view, tasks, fieldKeys, isLoading, emptyMessage, to
       updateViewConfig(view.id, { sorting: toTaskSorting(resolve(updater, config.sorting)) }),
     onColumnVisibilityChange: (updater) =>
       updateViewConfig(view.id, {
-        columnVisibility: resolve<ColumnVisibilityState>(updater, columnVisibility),
+        columnVisibility: withoutGroupColumn(resolve<ColumnVisibilityState>(updater, columnVisibility)),
       }),
     onColumnOrderChange: (updater) =>
       updateViewConfig(view.id, {
-        columnOrder: resolve<ColumnOrderState>(updater, columnOrder),
+        columnOrder: resolve<ColumnOrderState>(updater, columnOrder).filter((columnId) => columnId !== groupColumnId),
       }),
     onColumnSizingChange: (updater) =>
       updateViewConfig(view.id, {
@@ -283,6 +341,7 @@ export const TasksTable = ({ view, tasks, fieldKeys, isLoading, emptyMessage, to
       emptyMessage={emptyMessage}
       i18n={dataGridI18n}
       onCellsChange={handleCellsChange}
+      renderGroupRow={groupField === null ? undefined : (row) => <TaskGroupRow row={row} field={groupField} />}
       tableLayout={{
         dense: true,
         headerSticky: true,

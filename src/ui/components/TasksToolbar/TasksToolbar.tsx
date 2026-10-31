@@ -11,6 +11,7 @@ import { toTaskFilters } from '@/logic/filterLogic'
 import { describeSyncStatus, formatResultCount } from '@/logic/syncStatusLogic'
 import { updateViewConfig } from '@/logic/viewActions'
 import { createFilterFields, filterI18n } from './filterFields'
+import { GroupMenu } from './GroupMenu'
 import { MoreMenu } from './MoreMenu'
 import { NewTaskButton } from './NewTaskButton'
 import { PropertiesMenu } from './PropertiesMenu'
@@ -65,6 +66,7 @@ export const TasksToolbar = ({ views, view, settings, resultCount, fieldKeys }: 
       <IndexingIndicator />
       <div className='min-w-2 flex-1' />
       <SortMenu view={view} fieldKeys={fieldKeys} />
+      <GroupMenu view={view} fieldKeys={fieldKeys} />
       <Filters
         className='contents'
         filters={filters}

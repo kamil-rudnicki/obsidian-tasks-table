@@ -291,6 +291,35 @@ try {
     await toggleProperties()
   })
 
+  await step('groups tasks and closes a group', async () => {
+    const groupHeaders = root.locator('[data-slot=data-grid-group-row] button')
+    const savedGrouping = () =>
+      page.evaluate(async () => {
+        const views = await window.app.plugins.plugins['tasks-table'].services.invoke('views:list', null)
+        const { grouping, collapsedGroups } = views.find((view) => view.name === 'All tasks').config
+        return `${grouping?.field} ${collapsedGroups.join()}`
+      })
+    await root.getByRole('button', { name: 'Group', exact: true }).click()
+    await page.getByRole('combobox', { name: 'Group property' }).click()
+    await page.getByRole('option', { name: 'Status', exact: true }).click()
+    await page.keyboard.press('Escape')
+    await groupHeaders.first().waitFor()
+    assert.match(await groupHeaders.first().textContent(), /^StatusIn progress\d+$/u)
+    // A closed group hides its tasks, so the next group's header follows it.
+    await groupHeaders.first().click()
+    await waitFor(
+      async () => (await groupHeaders.nth(1).textContent())?.startsWith('StatusTo do'),
+      'The group did not close.',
+    )
+    assert.equal(await groupHeaders.first().getAttribute('aria-expanded'), 'false')
+    await waitFor(async () => (await savedGrouping()) === 'status in_progress', 'The view did not save the group.')
+    await root.getByRole('button', { name: 'Group', exact: true }).click()
+    await page.getByRole('button', { name: 'Remove group' }).click()
+    await page.keyboard.press('Escape')
+    await waitFor(async () => (await groupHeaders.count()) === 0, 'The groups did not go away.')
+    await waitFor(async () => (await savedGrouping()) === 'undefined ', 'The view did not save the removal.')
+  })
+
   await step('adds a filter and a sort', async () => {
     await addFilter('Status', 'Done')
     await waitFor(async () => (await root.getByText('Done', { exact: true }).count()) > 0, 'No done tasks shown.')

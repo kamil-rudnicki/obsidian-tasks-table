@@ -7,13 +7,12 @@ import {
   type TaskFilter,
   type TaskFilterField,
   type TaskListQuery,
-  type TaskPriority,
   getInlineFieldKey,
   getTaskLevel,
   type BuiltInSortField,
   type TaskSortField,
-  type TaskStatus,
 } from '@shared/taskTypes'
+import { compareValues, priorityRanks, statusRanks } from '@shared/taskOrder'
 import type { IndexedTask } from './noteTasks'
 
 export type TaskPredicate = (task: IndexedTask) => boolean
@@ -339,34 +338,6 @@ export const createTaskPredicate = (
 
   return (task) => predicates.every((predicate) => predicate(task))
 }
-
-const statusRanks: Record<TaskStatus, number> = {
-  in_progress: 0,
-  todo: 1,
-  done: 2,
-  cancelled: 3,
-}
-
-// Higher is more urgent, so sorting by priority descending lists urgent tasks first.
-const priorityRanks: Record<TaskPriority, number> = {
-  lowest: 0,
-  low: 1,
-  normal: 2,
-  medium: 3,
-  high: 4,
-  highest: 5,
-}
-
-const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
-
-const compareValues = (first: string | number, second: string | number): number =>
-  typeof first === 'string' && typeof second === 'string'
-    ? collator.compare(first, second)
-    : first < second
-      ? -1
-      : first > second
-        ? 1
-        : 0
 
 const sortValues: Record<BuiltInSortField, (task: IndexedTask) => string | number | null> = {
   description: (task) => task.description,

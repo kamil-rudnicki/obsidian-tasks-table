@@ -167,6 +167,30 @@ export const taskSortSchema = z.object({
 })
 export type TaskSort = z.infer<typeof taskSortSchema>
 
+// The properties a view can group its tasks by.
+export const taskGroupFields = [
+  'status',
+  'priority',
+  'dueDate',
+  'scheduledDate',
+  'startDate',
+  'createdDate',
+  'doneDate',
+  'tags',
+  'note',
+  'folder',
+  'level',
+] as const
+export type BuiltInGroupField = (typeof taskGroupFields)[number]
+export const taskGroupFieldSchema = z.union([z.enum(taskGroupFields), inlineFieldIdSchema])
+export type TaskGroupField = z.infer<typeof taskGroupFieldSchema>
+
+export const taskGroupingSchema = z.object({
+  field: taskGroupFieldSchema,
+  desc: z.boolean(),
+})
+export type TaskGrouping = z.infer<typeof taskGroupingSchema>
+
 export const taskListQuerySchema = z.object({
   filters: z.array(taskFilterSchema).max(30),
   sorting: z.array(taskSortSchema).max(taskSortFields.length),

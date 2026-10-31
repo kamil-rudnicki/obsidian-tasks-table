@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { taskFilterSchema, taskSortSchema } from '@shared/taskTypes'
+import { taskFilterSchema, taskGroupingSchema, taskSortSchema } from '@shared/taskTypes'
 
 const columnIdSchema = z.string().min(1).max(100)
 
@@ -10,6 +10,10 @@ export const viewConfigSchema = z.object({
   // Built-in columns plus one per inline field the vault uses.
   columnOrder: z.array(columnIdSchema).max(500),
   columnSizing: z.record(columnIdSchema, z.number().positive().max(4000)),
+  // Views saved before grouping existed have no group.
+  grouping: taskGroupingSchema.nullable().default(null),
+  // The values of the groups shown closed, for the property the view groups by.
+  collapsedGroups: z.array(z.string().max(1000)).max(500).default([]),
 })
 export type ViewConfig = z.infer<typeof viewConfigSchema>
 

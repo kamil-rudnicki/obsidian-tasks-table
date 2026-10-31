@@ -27,6 +27,7 @@ import {
 import {
   cellSelectionFeature,
   columnFacetingFeature,
+  columnGroupingFeature,
   columnFilteringFeature,
   columnOrderingFeature,
   columnPinningFeature,
@@ -37,6 +38,7 @@ import {
   createFacetedRowModel,
   createFacetedUniqueValues,
   createFilteredRowModel,
+  createGroupedRowModel,
   createPaginatedRowModel,
   createSortedRowModel,
   globalFilteringFeature,
@@ -59,6 +61,7 @@ import type {
   Column,
   ColumnFiltersState,
   ReactTable,
+  Row,
   RowData,
   SortingState,
   Table,
@@ -173,6 +176,8 @@ export const dataGridFeatures = tableFeatures({
   rowSortingFeature,
   rowPaginationFeature,
   rowSelectionFeature,
+  // Grouped rows: inert until the table's `grouping` state names a column.
+  columnGroupingFeature,
   rowExpandingFeature,
   rowPinningFeature,
   // Registration alone is inert: it seeds a `cellSelection: []` slice and
@@ -181,6 +186,7 @@ export const dataGridFeatures = tableFeatures({
   cellSelectionFeature,
   sortedRowModel: createSortedRowModel(),
   filteredRowModel: createFilteredRowModel(),
+  groupedRowModel: createGroupedRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
   expandedRowModel: createExpandedRowModel(),
   facetedRowModel: createFacetedRowModel(),
@@ -833,6 +839,11 @@ export interface DataGridProps<
    * never republishes the context. Absent: copy still works, writes no-op.
    */
   onCellsChange?: (details: DataGridCellsChangeDetails<TData>) => void
+  /**
+   * Renders a grouped row (TanStack column grouping) as one full-width
+   * header instead of its cells. Absent: grouped rows render their cells.
+   */
+  renderGroupRow?: (row: Row<DataGridFeatures, TData>) => ReactNode
   /**
    * Opens the consumer's editor from the keyboard: Enter, F2, or typing on
    * the focused cell. Absent: Enter keeps moving down, typing does nothing.

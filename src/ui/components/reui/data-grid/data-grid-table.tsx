@@ -2432,6 +2432,44 @@ function DataGridTableBodyRowCell<TData extends object>({
   )
 }
 
+// A grouped row: one cell across the table with the consumer's group header.
+// It has no data-row-id, so cell selection and its keyboard moves skip it.
+function DataGridTableGroupRow<TData extends object>({
+  row,
+  rowRef,
+  dataIndex,
+}: {
+  row: Row<DataGridFeatures, TData>
+  rowRef?: React.Ref<HTMLTableRowElement>
+  dataIndex?: number
+}) {
+  const { props, table } = useDataGrid()
+
+  return (
+    <tr
+      ref={(node) => assignRef(rowRef, node)}
+      data-index={dataIndex}
+      data-slot="data-grid-group-row"
+      className={cn(
+        props.tableLayout?.rowBorder && "[&:not(:last-child)>td]:border-b",
+        props.tableClassNames?.bodyRow
+      )}
+    >
+      <td
+        colSpan={Math.max(table.getVisibleLeafColumns().length, 1)}
+        className="p-0"
+      >
+        {/* The row object stays the same when it expands or collapses. */}
+        <Subscribe source={table.atoms.expanded}>
+          {/* The context's props take rows of any data; TanStack's row type cannot widen to it. */}
+          {() => props.renderGroupRow?.(row as never)}
+        </Subscribe>
+      </td>
+      <DataGridTableFillBodyCell />
+    </tr>
+  )
+}
+
 function DataGridTableRenderedRow<TData extends object>({
   row,
   pinnedBoundary,
@@ -2454,6 +2492,11 @@ function DataGridTableRenderedRow<TData extends object>({
   centerWindow?: { start: number; end: number }
 }) {
   const { props, table } = useDataGrid()
+
+  if (props.renderGroupRow && row.getIsGrouped()) {
+    return <DataGridTableGroupRow row={row} rowRef={rowRef} dataIndex={rowIndex} />
+  }
+
   const startVisibleCells = row.getStartVisibleCells()
   const centerVisibleCells = row.getCenterVisibleCells()
   const endVisibleCells = row.getEndVisibleCells()
