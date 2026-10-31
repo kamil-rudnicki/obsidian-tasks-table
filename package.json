@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-tasks-table",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Tasks from every note in one table with saved views, filters, sorting and columns.",
 	"main": "main.js",
 	"type": "module",
