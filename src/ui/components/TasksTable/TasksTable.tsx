@@ -94,6 +94,16 @@ const fixedColumn = {
   enableResizing: false,
 } as const
 
+// Default widths leave room for the title, its icon and the sort icon, also in
+// wider note fonts.
+const dateColumnSizes = {
+  dueDate: 120,
+  scheduledDate: 140,
+  startDate: 120,
+  createdDate: 128,
+  doneDate: 140,
+} as const
+
 const builtInColumns: ColumnDef<DataGridFeatures, Task>[] = [
   {
     id: 'complete',
@@ -137,7 +147,7 @@ const builtInColumns: ColumnDef<DataGridFeatures, Task>[] = [
     accessorKey: 'priority',
     header: header(columnLabels.priority, FlagIcon),
     cell: ({ row }) => <TaskPriorityCell task={row.original} />,
-    size: 112,
+    size: 128,
     meta: { headerTitle: columnLabels.priority },
   },
   ...(['dueDate', 'scheduledDate', 'startDate'] as const).map(
@@ -146,7 +156,7 @@ const builtInColumns: ColumnDef<DataGridFeatures, Task>[] = [
       accessorKey: field,
       header: header(columnLabels[field], CalendarIcon),
       cell: ({ row }) => <TaskDateCell task={row.original} field={field} />,
-      size: 120,
+      size: dateColumnSizes[field],
       meta: { headerTitle: columnLabels[field] },
     }),
   ),
@@ -191,7 +201,7 @@ const builtInColumns: ColumnDef<DataGridFeatures, Task>[] = [
       accessorKey: field,
       header: header(columnLabels[field], CalendarIcon),
       cell: ({ row }) => <TaskReadOnlyDateCell value={row.original[field]} />,
-      size: 120,
+      size: dateColumnSizes[field],
       meta: { headerTitle: columnLabels[field] },
     }),
   ),
