@@ -63,6 +63,7 @@ To try the plugin in a vault, copy or link `main.js`, `manifest.json` and `style
 - `src/main.ts`: plugin lifecycle, commands and the view.
 - `src/plugin/`: the composition root (`PluginServices`), the API the UI calls, the item view and the settings tab (Obsidian's declarative settings).
 - `src/database/`: sql.js (SQLite compiled to WebAssembly, bundled into `main.js`), migrations, and the settings and views repositories.
+- `scripts/reactDomScripts.mjs`: removes React DOM's script loading (`ReactDOM.preinit()` and hoisted `<script>` elements, which the plugin does not use) from the bundle, so `main.js` has no code that adds scripts to the page.
 - `src/vault/`: task line syntax (`taskLineSyntax.ts`) and editing (`taskLine.ts`), the in-memory task index with its filters and sorting, the vault indexer and the writer that edits notes with `Vault.process`.
 - `src/ui/`: the React UI with shadcn/ui (Base UI) and ReUI's data grid and filters, TanStack Table, Query and Store.
 
