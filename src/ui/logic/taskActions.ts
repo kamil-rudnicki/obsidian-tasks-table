@@ -59,6 +59,17 @@ export const deleteTask = async (task: Task): Promise<void> => {
   }
 }
 
+export const cutTask = async (task: Task): Promise<void> => {
+  try {
+    await invoke('tasks:cut', { id: task.id })
+    notify(`Cut “${getDisplayTitle(task.description)}” from ${task.note}. Paste it into any note.`)
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    void refreshTasks()
+  }
+}
+
 // A modifier key (Cmd on macOS, Ctrl elsewhere) opens the note in a split.
 export const openTask = async (task: Task, target: OpenTarget = 'tab'): Promise<void> => {
   try {

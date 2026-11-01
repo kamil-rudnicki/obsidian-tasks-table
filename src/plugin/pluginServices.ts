@@ -140,6 +140,11 @@ export class PluginServices {
         await writer.deleteTask(id)
         return null
       },
+      'tasks:cut': async ({ id }) => {
+        // The window in focus is where the user chose Cut, also a pop-out window.
+        await writer.cutTask(id, (text) => activeWindow.navigator.clipboard.writeText(text))
+        return null
+      },
       'tasks:options': (input) => this.index.listOptions(input),
       'tasks:fields': () => this.index.listFields(),
       'tasks:open': async ({ id, target }) => {

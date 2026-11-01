@@ -19,6 +19,7 @@ const inputSchemas: { [Channel in ApiChannel]: z.ZodType<ApiInput<Channel>> } = 
   'tasks:create': createTaskInputSchema,
   'tasks:update': updateTaskInputSchema,
   'tasks:delete': idInputSchema,
+  'tasks:cut': idInputSchema,
   'tasks:options': taskOptionsInputSchema,
   'tasks:fields': emptyInputSchema,
   'tasks:open': z.object({ id: idSchema, target: z.enum(openTargets) }),

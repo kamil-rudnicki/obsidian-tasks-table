@@ -1,9 +1,9 @@
-import type { App } from 'obsidian'
+import type { App, TFile } from 'obsidian'
 import { getToday, parseIsoDate } from '@shared/dateLogic'
 import type { Settings } from '@shared/settingsTypes'
 import type { CreateTaskInput, Task, TaskChanges, UpdateTaskInput } from '@shared/taskTypes'
 import { UserError } from '@shared/userError'
-import { getTaskBlock, locateLine, removeLines, replaceLine } from './noteEdits'
+import { getTaskBlock, locateLine, removeLines, replaceLine, type TaskBlock } from './noteEdits'
 import { createNoteFiles, normalizeNotePath, type TargetNote } from './noteFiles'
 import { splitLines, type IndexedTask } from './noteTasks'
 import { toPublicTask, type TaskIndex } from './taskIndex'
@@ -68,6 +68,38 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
     return { notePath: task.filePath, line: located.line }
   }
 
+  // Reads the task's note and finds the task with its subtasks and notes.
+  const readTaskBlock = async (id: string): Promise<{ file: TFile; content: string; block: TaskBlock }> => {
+    const { task, file } = findTask(id)
+    const content = await vault.read(file)
+    const line = locateLine(content, task.line, task.raw)
+
+    if (line === null) {
+      await indexer.indexContent(file, content)
+      throw new UserError(taskChangedMessage)
+    }
+
+    return { file, content, block: getTaskBlock(content, line) }
+  }
+
+  // Removes the block only when the note still has the content it was read
+  // from, so lines that changed meanwhile are never removed.
+  const removeTaskBlock = async (
+    file: TFile,
+    readContent: string,
+    block: TaskBlock,
+  ): Promise<{ removed: boolean; content: string }> => {
+    let removed = false
+    const content = await vault.process(file, (data) => {
+      if (data !== readContent) {
+        return data
+      }
+      removed = true
+      return removeLines(data, block.start, block.end)
+    })
+    return { removed, content }
+  }
+
   const getTaskAt = (notePath: string, line: number): Task => {
     const task = index.getTaskAtLine(notePath, line)
     if (!task) {
@@ -84,27 +116,10 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
     target: TargetNote,
     edit: (line: string) => string,
   ): Promise<Task> => {
-    const { file: source } = findTask(task.id)
-    const sourceContent = await vault.read(source)
-    const line = locateLine(sourceContent, task.line, task.raw)
-
-    if (line === null) {
-      await indexer.indexContent(source, sourceContent)
-      throw new UserError(taskChangedMessage)
-    }
-
-    const block = getTaskBlock(sourceContent, line)
+    const { file: source, content: sourceContent, block } = await readTaskBlock(task.id)
     const movedLines = [edit(block.lines[0]), ...block.lines.slice(1)]
     const inserted = await notes.insertIntoNote(target, movedLines, getSettings().newTaskHeading)
-
-    let removed = false
-    const sourceAfter = await vault.process(source, (data) => {
-      if (data !== sourceContent) {
-        return data
-      }
-      removed = true
-      return removeLines(data, block.start, block.end)
-    })
+    const { removed, content: sourceAfter } = await removeTaskBlock(source, sourceContent, block)
 
     if (!removed) {
       const targetAfter = await vault.process(inserted.file, (data) =>
@@ -151,6 +166,21 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
       await editTaskLine(id, () => null)
     })
 
+  // Copies the task, with its subtasks and notes, through `copy` and only then
+  // removes it from its note, so a failed copy never loses the task. The
+  // copied lines have no nesting, ready to paste at the top level of a note.
+  const cutTask = (id: string, copy: (text: string) => Promise<void>): Promise<void> =>
+    indexer.runExclusive(async () => {
+      const { file, content, block } = await readTaskBlock(id)
+      await copy(block.lines.join('\n'))
+      const { removed, content: after } = await removeTaskBlock(file, content, block)
+      await indexer.indexContent(file, after)
+
+      if (!removed) {
+        throw new UserError('The note changed meanwhile. The task was copied, but it is still in its note.')
+      }
+    })
+
   const getNewTaskNote = (settings: Settings): Promise<TargetNote> =>
     settings.newTaskTarget === 'note'
       ? Promise.resolve({ notePath: normalizeNotePath(settings.newTaskNotePath), template: '' })
@@ -171,7 +201,7 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
       return getTaskAt(target.notePath, inserted.line)
     })
 
-  return { updateTask, deleteTask, createTask }
+  return { updateTask, deleteTask, cutTask, createTask }
 }
 
 export type TaskWriter = ReturnType<typeof createTaskWriter>

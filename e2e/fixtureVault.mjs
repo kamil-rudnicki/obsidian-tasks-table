@@ -56,6 +56,8 @@ export const createFixtureVault = async (vaultPath, { bulkTasks = 2000 } = {}) =
   ].join('\n'))
   await write(vaultPath, `Daily/${addDays(-1)}.md`, `# Yesterday\n\n- [ ] Call Ann #people\n- [x] Gym ✅ ${addDays(-1)}\n`)
   await write(vaultPath, 'Notes/No tasks.md', '# Just text\n\nNothing to do here.\n')
+  // A task with a note line under it, for Cut.
+  await write(vaultPath, 'Notes/Inbox.md', '# Inbox\n\n- [ ] Sort the receipts\n  From the shoebox in the hall\n- [ ] Renew the passport\n')
   await write(vaultPath, 'Projects/Fields.md', [
     '- [ ] Draft budget [type:: work] [estimate:: 3]',
     '- [ ] Fix bike [type:: home] [estimate:: 1] [person:: [[People/Ann Smith|Ann]]]',

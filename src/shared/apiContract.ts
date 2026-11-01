@@ -19,6 +19,8 @@ export type ApiContract = {
   'tasks:create': { input: CreateTaskInput; output: Task }
   'tasks:update': { input: UpdateTaskInput; output: Task }
   'tasks:delete': { input: { id: string }; output: null }
+  // Copies the task, with its subtasks, to the clipboard and removes it from its note.
+  'tasks:cut': { input: { id: string }; output: null }
   'tasks:options': { input: TaskOptionsInput; output: string[] }
   'tasks:fields': { input: null; output: Array<{ key: string; count: number }> }
   'tasks:open': { input: { id: string; target: OpenTarget }; output: null }

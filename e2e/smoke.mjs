@@ -169,6 +169,26 @@ try {
     await page.getByRole('button', { name: 'Clear search' }).click()
   })
 
+  await step('cuts a task with its notes to the clipboard', async () => {
+    // A stand-in for the clipboard, so a test run keeps the clipboard of the app in use.
+    await page.evaluate(() => {
+      Object.defineProperty(window.navigator.clipboard, 'writeText', {
+        configurable: true,
+        value: async (text) => {
+          window.cutText = text
+        },
+      })
+    })
+    await page.getByRole('textbox', { name: 'Search tasks' }).fill('Sort the receipts')
+    await root.locator('tbody tr', { hasText: 'Sort the receipts' }).getByRole('button', { name: 'Task actions' }).click()
+    await page.getByRole('menuitem', { name: 'Cut task' }).click()
+    await waitFor(async () => !(await read('Notes/Inbox.md')).includes('Sort the receipts'), 'The task is still in its note.')
+    assert.equal(await read('Notes/Inbox.md'), '# Inbox\n\n- [ ] Renew the passport\n')
+    assert.equal(await page.evaluate(() => window.cutText), '- [ ] Sort the receipts\n  From the shoebox in the hall')
+    await page.evaluate(() => delete window.navigator.clipboard.writeText)
+    await page.getByRole('button', { name: 'Clear search' }).click()
+  })
+
   await step('adds a task to today’s daily note with Mod+N', async () => {
     // Focus the table without opening an editor, then press the shortcut.
     await root.getByRole('grid').focus()

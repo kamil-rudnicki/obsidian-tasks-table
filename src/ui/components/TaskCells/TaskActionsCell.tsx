@@ -1,4 +1,4 @@
-import { Columns2Icon, EllipsisIcon, ExternalLinkIcon, Trash2Icon } from 'lucide-react'
+import { Columns2Icon, EllipsisIcon, ExternalLinkIcon, ScissorsIcon, Trash2Icon } from 'lucide-react'
 import type { Task } from '@shared/taskTypes'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { requestTaskDelete } from '@/logic/deleteTaskLogic'
-import { openTask } from '@/logic/taskActions'
+import { cutTask, openTask } from '@/logic/taskActions'
 
 export const TaskActionsCell = ({ task }: { task: Task }) => (
   <div className='flex items-center justify-center'>
@@ -36,6 +36,10 @@ export const TaskActionsCell = ({ task }: { task: Task }) => (
           Open note to the right
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => void cutTask(task)}>
+          <ScissorsIcon />
+          Cut task
+        </DropdownMenuItem>
         <DropdownMenuItem variant='destructive' onClick={() => requestTaskDelete(task)}>
           <Trash2Icon />
           Delete task…
