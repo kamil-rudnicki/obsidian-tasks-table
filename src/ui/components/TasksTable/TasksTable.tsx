@@ -390,11 +390,16 @@ export const TasksTable = ({ view, tasks, fieldKeys, isLoading, emptyMessage, to
       }}
       // The frame is drawn with the cells' own borders, inside their widths: a
       // border on the table would make it 2px wider than the pane and add a
-      // horizontal scrollbar.
+      // horizontal scrollbar. Each row ends with the grid's fill cell, which
+      // is 0px wide as the Task column takes the free width, so the end border
+      // goes on the cell before it. The grid draws no bottom border on the
+      // last row, so the table's last row draws its own.
       tableClassNames={{
-        headerRow: '[&>th]:border-t [&>th:first-child]:border-s [&>th:last-child]:border-e',
+        headerRow:
+          '[&>th]:border-t [&>th:first-child]:border-s [&>th:has(+th[data-slot=data-grid-table-fill-head-cell]:last-child)]:border-e',
         headerSticky: 'sticky top-0 z-40 bg-background',
-        bodyRow: 'group/row [&>td:first-child]:border-s [&>td:last-child]:border-e',
+        bodyRow:
+          'group/row [&>td:first-child]:border-s [&>td:has(+td[data-slot=data-grid-table-fill-body-cell]:last-child)]:border-e [&:last-child>td]:border-b',
       }}
     >
       {toolbar}
