@@ -9,6 +9,7 @@ import {
   parseTaskLine,
   symbolForStatus,
   type ParsedTaskLine,
+  type TagRange,
   type TaskField,
   type TaskFormat,
 } from './taskLineSyntax'
@@ -110,8 +111,47 @@ const setDescription = (line: string, description: string): string => {
   )
 }
 
-// Removes the tags that are not in `tags` wherever they are, and adds the new
-// ones after the task's text, before its metadata. Tags in comments stay.
+// The task's own tags, outside its comments, each at its first place in the text.
+const findTaskTagRanges = (parsed: ParsedTaskLine): TagRange[] => {
+  const seen = new Set<string>()
+  return findTagRanges(parsed.body.slice(0, parsed.blockIdStart ?? parsed.body.length)).filter((range) => {
+    const isInComment = parsed.comments.some((comment) => range.start > comment.start && range.end < comment.end)
+    if (isInComment || seen.has(range.tag)) {
+      return false
+    }
+    seen.add(range.tag)
+    return true
+  })
+}
+
+// Puts the tags in the order of `order`. The tags keep their places in the
+// text and only swap names, so the words around them stay as written.
+const orderTags = (line: string, order: string[]): string => {
+  const parsed = parseTaskLine(line)
+
+  if (!parsed) {
+    return line
+  }
+
+  const ranges = findTaskTagRanges(parsed)
+  const wanted = order.filter((tag) => ranges.some((range) => range.tag === tag))
+
+  if (wanted.length !== ranges.length || wanted.every((tag, index) => tag === ranges[index].tag)) {
+    return line
+  }
+
+  let body = parsed.body
+  // Walk from the end so earlier tag positions stay valid.
+  for (let index = ranges.length - 1; index >= 0; index -= 1) {
+    body = `${body.slice(0, ranges[index].start)}#${wanted[index]}${body.slice(ranges[index].end)}`
+  }
+
+  return serialize(parsed, parsed.statusSymbol, body)
+}
+
+// Removes the tags that are not in `tags` wherever they are, adds the new ones
+// after the task's text, before its metadata, and puts them all in the order
+// of `tags`. Tags in comments stay.
 const setTags = (line: string, tags: string[]): string => {
   const parsed = parseTaskLine(line)
 
@@ -133,16 +173,17 @@ const setTags = (line: string, tags: string[]): string => {
   const withoutRemoved = parseTaskLine(serialize(parsed, parsed.statusSymbol, body))
 
   if (added.length === 0 || !withoutRemoved) {
-    return serialize(parsed, parsed.statusSymbol, body)
+    return orderTags(serialize(parsed, parsed.statusSymbol, body), tags)
   }
 
   const tagText = added.map((tag) => `#${tag}`).join(' ')
-
-  return serialize(
+  const withAdded = serialize(
     withoutRemoved,
     withoutRemoved.statusSymbol,
     insertWord(withoutRemoved.body, getDescriptionEnd(withoutRemoved), tagText),
   )
+
+  return orderTags(withAdded, tags)
 }
 
 // A new comment goes after the task's last comment, or after its text when it

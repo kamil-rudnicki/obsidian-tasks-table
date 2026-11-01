@@ -132,6 +132,17 @@ try {
     )
     assert.doesNotMatch(await lineWith('Personal/Home.md', 'Book dentist'), /#health/u)
     await row.getByRole('combobox', { name: 'Tags: #Dental-care, #home' }).waitFor()
+    // From the empty field, the left arrow goes to the last tag, and Alt with
+    // the left arrow moves it before the tag next to it.
+    await row.getByRole('combobox', { name: 'Tags: #Dental-care, #home' }).click()
+    await page.getByRole('combobox', { name: 'Search or add tags' }).press('ArrowLeft')
+    await page.keyboard.press('Alt+ArrowLeft')
+    await page.keyboard.press('Escape')
+    await waitFor(
+      async () => /^- \[ \] Book dentist #home #Dental-care \[due:: [\d-]+\]/u.test(await lineWith('Personal/Home.md', 'Book dentist')),
+      'The new tag order was not written.',
+    )
+    await row.getByRole('combobox', { name: 'Tags: #home, #Dental-care' }).waitFor()
   })
 
   await step('edits a title inline', async () => {

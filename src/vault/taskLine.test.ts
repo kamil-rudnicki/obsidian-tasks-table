@@ -128,6 +128,20 @@ describe('tags', () => {
     expect(setTags('- [ ] Plan #work/project', ['work'])).toBe('- [ ] Plan #work')
   })
 
+  test('writes the tags in the new order, each in a place a tag had', () => {
+    expect(setTags('- [ ] Fix login #type/dev #project/app 📅 2026-11-03', ['project/app', 'type/dev'])).toBe(
+      '- [ ] Fix login #project/app #type/dev 📅 2026-11-03',
+    )
+    expect(setTags('- [ ] #work Call #ann about the plan ^b1', ['ann', 'work'])).toBe(
+      '- [ ] #ann Call #work about the plan ^b1',
+    )
+    expect(setTags('- [ ] Fix #a #b', ['c', 'b', 'a'])).toBe('- [ ] Fix #c #b #a')
+    expect(setTags('- [ ] Fix #a #b #a again', ['b', 'a'])).toBe('- [ ] Fix #b #a #a again')
+    expect(setTags('- [ ] Fix #a #b [comment_2026-11-01 10:00:: about #c]', ['b', 'a'])).toBe(
+      '- [ ] Fix #b #a [comment_2026-11-01 10:00:: about #c]',
+    )
+  })
+
   test('changes nothing when the tags are the same', () => {
     expect(setTags('- [ ] Call  #a   now', ['a'])).toBe('- [ ] Call  #a   now')
   })
