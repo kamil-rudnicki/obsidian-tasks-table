@@ -3,8 +3,9 @@
 // Opted out of React Compiler with the rest of the grid (see data-grid.tsx).
 "use no memo"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type {
+  ChangeEvent,
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
@@ -2331,58 +2332,129 @@ function DataGridCellSelection<TData extends object>({
   )
 }
 
+/** Where the editor opens, and the style that makes it match the cell. */
+interface DataGridCellEditorLayout {
+  /** The cell's top edge, in the viewport's content coordinates. */
+  cellTop: number
+  style: CSSProperties
+}
+
 /**
  * The built-in free-text editor: a portal into the body viewport, positioned
  * flush over the focused cell with the cell's own font, alignment and
- * padding, so the text keeps its exact place - the Sheets model. The
- * `textarea` control grows downward over the rows below as the text wraps.
+ * padding, so the text keeps its exact place - the Sheets model. Long text
+ * wraps and grows the editor downward over the rows below.
  */
-function measureDataGridCellEditorStyle(
+function measureDataGridCellEditorLayout(
   viewport: HTMLElement
-): CSSProperties | null {
+): DataGridCellEditorLayout | null {
   const cell = viewport.querySelector<HTMLElement>("td[data-cell-focused]")
   if (!cell) return null
   const cellRect = cell.getBoundingClientRect()
   const viewportRect = viewport.getBoundingClientRect()
   const cellStyle = getComputedStyle(cell)
-  // The td centers its one line vertically (align-middle); the editor must
-  // put the text in exactly the same place or opening it shifts the value.
-  // Symmetric block padding sized to center one line does that for the
-  // textarea too, and keeps holding as it grows line by line.
+  const px = (value: string) => Number.parseFloat(value) || 0
+  // The td centers its one line vertically (align-middle) between its
+  // borders; the editor must put the text in exactly the same place or
+  // opening it shifts the value. Block padding sized to center one line does
+  // that for the textarea too, and keeps holding as it grows line by line.
+  // The editor has no borders of its own, so its padding takes in the
+  // cell's.
   const lineHeight =
-    Number.parseFloat(cellStyle.lineHeight) ||
-    Number.parseFloat(cellStyle.fontSize) * 1.5 ||
-    20
-  const centeredBlockPadding = Math.max(
-    Number.parseFloat(cellStyle.paddingTop) || 0,
-    (cellRect.height - lineHeight) / 2
+    px(cellStyle.lineHeight) || px(cellStyle.fontSize) * 1.5 || 20
+  const borderTop = px(cellStyle.borderTopWidth)
+  const borderBottom = px(cellStyle.borderBottomWidth)
+  const centeredSpace = Math.max(
+    px(cellStyle.paddingTop),
+    (cellRect.height - borderTop - borderBottom - lineHeight) / 2
   )
   return {
     // Rect deltas are visual; when the viewport itself is the scroll
     // container (the standalone virtual layout), absolute children live in
-    // content coordinates, so the scroll offset must be added back. The box
-    // matches the cell exactly - editing must not change the cell's
-    // geometry - and the cell's own overlay chrome hides for the session
-    // (data-cell-editing), so the editor's outline is the ONE border.
-    left: cellRect.left - viewportRect.left + viewport.scrollLeft,
-    top: cellRect.top - viewportRect.top + viewport.scrollTop,
-    width: cellRect.width,
-    minHeight: cellRect.height,
-    // The font shorthand can serialize empty (Firefox); the longhands after
-    // it win where set and cover that case.
-    font: cellStyle.font || undefined,
-    fontFamily: cellStyle.fontFamily,
-    fontSize: cellStyle.fontSize,
-    fontWeight: cellStyle.fontWeight,
-    fontStyle: cellStyle.fontStyle,
-    lineHeight: cellStyle.lineHeight,
-    letterSpacing: cellStyle.letterSpacing,
-    textAlign: cellStyle.textAlign as CSSProperties["textAlign"],
-    paddingLeft: cellStyle.paddingLeft,
-    paddingRight: cellStyle.paddingRight,
-    paddingTop: centeredBlockPadding,
-    paddingBottom: centeredBlockPadding,
+    // content coordinates, so the scroll offset must be added back. The
+    // editor's top is set once it is laid out (see placeDataGridCellEditor).
+    cellTop: cellRect.top - viewportRect.top + viewport.scrollTop,
+    style: {
+      // The box matches the cell exactly - editing must not change the
+      // cell's geometry - and the cell's own overlay chrome hides for the
+      // session (data-cell-editing), so the editor's outline is the ONE
+      // border.
+      left: cellRect.left - viewportRect.left + viewport.scrollLeft,
+      width: cellRect.width,
+      minHeight: cellRect.height,
+      // The font shorthand can serialize empty (Firefox); the longhands
+      // after it win where set and cover that case.
+      font: cellStyle.font || undefined,
+      fontFamily: cellStyle.fontFamily,
+      fontSize: cellStyle.fontSize,
+      fontWeight: cellStyle.fontWeight,
+      fontStyle: cellStyle.fontStyle,
+      lineHeight: cellStyle.lineHeight,
+      letterSpacing: cellStyle.letterSpacing,
+      textAlign: cellStyle.textAlign as CSSProperties["textAlign"],
+      paddingLeft: px(cellStyle.borderLeftWidth) + px(cellStyle.paddingLeft),
+      paddingRight:
+        px(cellStyle.borderRightWidth) + px(cellStyle.paddingRight),
+      paddingTop: borderTop + centeredSpace,
+      paddingBottom: borderBottom + centeredSpace,
+    },
   }
+}
+
+// The element that scrolls the rows: the scroll area's viewport, or the grid
+// viewport itself in the standalone virtual layout.
+function getDataGridScrollContainer(viewport: HTMLElement): HTMLElement {
+  for (
+    let element: HTMLElement | null = viewport;
+    element;
+    element = element.parentElement
+  ) {
+    const { overflowY } = getComputedStyle(element)
+    if (overflowY === "auto" || overflowY === "scroll") return element
+  }
+  return viewport
+}
+
+/**
+ * Keeps a grown editor inside the rows the user can see: from below the
+ * sticky header to the bottom of the scroll container. The editor opens on
+ * its cell and grows down; it moves up only when the rows below have no room
+ * for it, and its text scrolls when even all visible rows are too short.
+ */
+function placeDataGridCellEditor(
+  editor: HTMLElement,
+  viewport: HTMLElement,
+  layout: DataGridCellEditorLayout
+) {
+  const scroller = getDataGridScrollContainer(viewport)
+  const scrollerTop = scroller.getBoundingClientRect().top + scroller.clientTop
+  const headerBottom =
+    viewport
+      .querySelector('[data-slot="data-grid-table"] thead')
+      ?.getBoundingClientRect().bottom ?? scrollerTop
+  // The horizontal scrollbar lies over the last rows; the editor stays
+  // above it.
+  const scrollbarTop =
+    viewport
+      .closest('[data-slot="data-grid-scroll-area"]')
+      ?.querySelector(
+        '[data-slot="data-grid-scrollbar"][data-orientation="horizontal"]'
+      )
+      ?.getBoundingClientRect().top ?? Infinity
+  // From client coordinates to the viewport's content coordinates.
+  const offset = viewport.scrollTop - viewport.getBoundingClientRect().top
+  const visibleTop = Math.max(scrollerTop, headerBottom) + offset
+  const visibleBottom =
+    Math.min(scrollerTop + scroller.clientHeight, scrollbarTop) + offset
+  // The cell's height stays the minimum: min-height wins over max-height.
+  editor.setCssStyles({
+    maxHeight: `${Math.max(visibleBottom - visibleTop, 0)}px`,
+  })
+  const top = Math.min(
+    layout.cellTop,
+    Math.max(visibleTop, visibleBottom - editor.offsetHeight)
+  )
+  editor.setCssStyles({ top: `${top}px` })
 }
 
 function DataGridCellEditorOverlay({
@@ -2405,25 +2477,34 @@ function DataGridCellEditorOverlay({
   // Measured lazily at first render: the focused td was committed before the
   // session opened, and the overlay remounts per cell via its key, so one
   // measurement holds for the editor's lifetime.
-  const [style] = useState<CSSProperties | null>(() =>
-    measureDataGridCellEditorStyle(viewport)
+  const [layout] = useState<DataGridCellEditorLayout | null>(() =>
+    measureDataGridCellEditorLayout(viewport)
   )
+  const editorRef = useRef<HTMLTextAreaElement>(null)
   const finishedRef = useRef(false)
 
-  // The caret belongs at the END of the value (the Excel F2 convention);
-  // a textarea would otherwise open with it at position 0. Set on mount,
-  // before autoFocus lands, so the stored selection is already right.
-  const placeCaretAtEnd = (
-    element: HTMLInputElement | HTMLTextAreaElement | null
-  ) => {
-    if (!element) return
-    const end = element.value.length
-    element.setSelectionRange?.(end, end)
-  }
-
   useEffect(() => {
-    if (!style) onCancel()
-  }, [style, onCancel])
+    if (!layout) onCancel()
+  }, [layout, onCancel])
+
+  // Placed before the first paint, and again each time typing changes the
+  // editor's height. Focus waits for the placement: focusing an editor that
+  // still reaches below the visible rows would scroll the grid. The caret
+  // goes to the END of the value (the Excel F2 convention), and text that
+  // scrolls shows its end too.
+  useLayoutEffect(() => {
+    const editor = editorRef.current
+    if (!editor || !layout) return
+    const place = () => placeDataGridCellEditor(editor, viewport, layout)
+    place()
+    const end = editor.value.length
+    editor.setSelectionRange(end, end)
+    editor.focus({ preventScroll: true })
+    editor.scrollTop = editor.scrollHeight
+    const observer = new ResizeObserver(place)
+    observer.observe(editor)
+    return () => observer.disconnect()
+  }, [viewport, layout])
 
   // External row changes mid-edit (a live update, a re-sort) move or remove
   // the cell underneath the overlay; the measured position is then a lie and
@@ -2439,10 +2520,10 @@ function DataGridCellEditorOverlay({
     return () => observer.disconnect()
   }, [viewport, onCancel])
 
-  if (!style) return null
+  if (!layout) return null
 
   const finish = (
-    element: HTMLInputElement | HTMLTextAreaElement,
+    element: HTMLTextAreaElement,
     commit: boolean,
     advance: DataGridEditorAdvance = null,
     refocus = true
@@ -2455,9 +2536,9 @@ function DataGridCellEditorOverlay({
     else onCancel()
   }
 
-  const handleKeyDown = (
-    event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter and Escape during IME composition belong to the input method.
+    if (event.nativeEvent.isComposing) return
     const element = event.currentTarget
     if (event.key === "Escape") {
       event.preventDefault()
@@ -2485,41 +2566,39 @@ function DataGridCellEditorOverlay({
     )
   }
 
+  // A one-line value takes no line breaks: pasted or dropped ones become
+  // spaces, and the caret stays after the inserted text.
+  const keepOnOneLine = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const element = event.currentTarget
+    if (session.control !== "text" || !/[\r\n]/u.test(element.value)) return
+    const toOneLine = (text: string) => text.replace(/\r\n?|\n/gu, " ")
+    const caret = element.selectionEnd
+    const beforeCaret = toOneLine(element.value.slice(0, caret))
+    element.value = beforeCaret + toOneLine(element.value.slice(caret))
+    element.setSelectionRange(beforeCaret.length, beforeCaret.length)
+  }
+
   // z-[35]: above the sticky pinned cells (zIndex 30), or editing a pinned
   // cell renders invisibly underneath them; below the sticky header (z-40).
   // Primary outline at the same 1px weight as the focused cell's box: with
   // the overlay covering that box, opening the editor reads as the same
-  // border becoming editable.
-  const sharedClassName =
-    "text-foreground bg-background outline-primary absolute z-[35] box-border resize-none outline-1 outline-solid -outline-offset-1"
-
+  // border becoming editable. Long words, such as links, wrap too.
+  // --no-tooltip stops Obsidian from showing the aria-label as a tooltip
+  // over the text being edited.
   return createPortal(
-    session.control === "textarea" ? (
-      <textarea
-        data-slot="data-grid-cell-editor"
-        ref={placeCaretAtEnd}
-        autoFocus
-        aria-label={session.label}
-        defaultValue={session.initialValue}
-        rows={1}
-        style={style}
-        className={cn(sharedClassName, "field-sizing-content overflow-hidden")}
-        onKeyDown={handleKeyDown}
-        onBlur={(event) => finish(event.currentTarget, true, null, false)}
-      />
-    ) : (
-      <input
-        data-slot="data-grid-cell-editor"
-        ref={placeCaretAtEnd}
-        autoFocus
-        aria-label={session.label}
-        defaultValue={session.initialValue}
-        style={style}
-        className={sharedClassName}
-        onKeyDown={handleKeyDown}
-        onBlur={(event) => finish(event.currentTarget, true, null, false)}
-      />
-    ),
+    <textarea
+      data-slot="data-grid-cell-editor"
+      ref={editorRef}
+      aria-label={session.label}
+      aria-multiline={session.control === "textarea"}
+      defaultValue={session.initialValue}
+      rows={1}
+      style={layout.style}
+      className="text-foreground bg-background outline-primary absolute z-[35] box-border field-sizing-content resize-none overflow-y-auto wrap-break-word outline-1 outline-solid -outline-offset-1 [--no-tooltip:true]"
+      onKeyDown={handleKeyDown}
+      onChange={keepOnOneLine}
+      onBlur={(event) => finish(event.currentTarget, true, null, false)}
+    />,
     viewport
   )
 }

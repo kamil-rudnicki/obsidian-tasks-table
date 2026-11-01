@@ -105,11 +105,14 @@ export interface DataGridColumnCellEdit<TData> {
   /** Value dispatched by Delete/Backspace and cut. Defaults to null. */
   clearValue?: unknown
   /**
-   * Opt into the grid's built-in free-text editor: an overlay input (or
-   * auto-growing textarea) flush over the focused cell, opened by Enter, F2,
-   * typing, or double-click, committing through `onCellsChange` as source
-   * `"edit"` with `parse` applied. Columns without it stay consumer-edited
-   * via `onCellEditRequest` or their own cell renderers.
+   * Opt into the grid's built-in free-text editor: an overlay flush over the
+   * focused cell, opened by Enter, F2, typing, or double-click, committing
+   * through `onCellsChange` as source `"edit"` with `parse` applied. Long text
+   * wraps and grows the editor over the rows below, never the row itself.
+   * `"text"` keeps the value on one line: Enter always commits and pasted
+   * line breaks become spaces. `"textarea"` takes line breaks from
+   * Shift+Enter or Alt+Enter. Columns without it stay consumer-edited via
+   * `onCellEditRequest` or their own cell renderers.
    */
   control?: "text" | "textarea"
 }

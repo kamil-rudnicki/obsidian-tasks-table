@@ -137,9 +137,17 @@ try {
   await step('edits a title inline', async () => {
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Call Ann')
     // One click on a title opens the inline editor.
-    await root.locator('tbody tr', { hasText: 'Call Ann' }).locator('td').nth(1).click()
+    const row = root.locator('tbody tr', { hasText: 'Call Ann' })
+    await row.locator('td').nth(1).click()
     const editor = root.locator('[data-slot=data-grid-cell-editor]')
     await editor.waitFor()
+    // Long text wraps over the rows below while the row keeps its height, and
+    // a line break becomes a space, as a task is one line.
+    const rowHeight = (await row.boundingBox()).height
+    await editor.fill(`Call Ann\n${'about the plans for the long weekend '.repeat(6)}`)
+    assert.ok((await editor.boundingBox()).height > rowHeight * 2, 'The editor did not wrap the long title.')
+    assert.equal((await row.boundingBox()).height, rowHeight)
+    assert.doesNotMatch(await editor.inputValue(), /\n/u)
     await editor.fill('Call Ann about the trip #people')
     await page.keyboard.press('Enter')
     const yesterday = await page.evaluate(() => window.moment().subtract(1, 'day').format('YYYY-MM-DD'))
