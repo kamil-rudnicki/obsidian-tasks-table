@@ -136,6 +136,7 @@ export class PluginServices {
         this.index.listTasks(query, getToday(), await this.dailyNoteDates.getQueryContext()),
       'tasks:create': (input) => writer.createTask(input),
       'tasks:update': (input) => writer.updateTask(input),
+      'tasks:comment': (input) => writer.addComment(input),
       'tasks:delete': async ({ id }) => {
         await writer.deleteTask(id)
         return null

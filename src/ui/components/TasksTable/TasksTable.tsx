@@ -10,6 +10,7 @@ import {
   FolderIcon,
   HashIcon,
   LinkIcon,
+  MessageSquareIcon,
   TextIcon,
   type LucideIcon,
 } from 'lucide-react'
@@ -44,6 +45,7 @@ import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-colu
 import { DataGridScrollArea } from '@/components/reui/data-grid/data-grid-scroll-area'
 import { DataGridTableVirtual } from '@/components/reui/data-grid/data-grid-table-virtual'
 import { TaskActionsCell } from '@/components/TaskCells/TaskActionsCell'
+import { TaskCommentsCell } from '@/components/TaskCells/TaskCommentsCell'
 import { TaskCompleteCell } from '@/components/TaskCells/TaskCompleteCell'
 import { TaskDateCell } from '@/components/TaskCells/TaskDateCell'
 import { TaskFieldCell } from '@/components/TaskCells/TaskFieldCell'
@@ -176,6 +178,15 @@ const builtInColumns: ColumnDef<DataGridFeatures, Task>[] = [
     size: 220,
     enableSorting: false,
     meta: { headerTitle: columnLabels.links },
+  },
+  {
+    id: 'comments',
+    accessorFn: (task) => task.comments.length,
+    header: header(columnLabels.comments, MessageSquareIcon),
+    cell: ({ row }) => <TaskCommentsCell task={row.original} />,
+    size: 120,
+    enableSorting: false,
+    meta: { headerTitle: columnLabels.comments },
   },
   {
     id: 'note',

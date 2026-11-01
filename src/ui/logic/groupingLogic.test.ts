@@ -31,6 +31,7 @@ const createTask = (id: string, changes: Partial<Task> = {}): Task => ({
   tags: [],
   fields: {},
   links: [],
+  comments: [],
   ...changes,
 })
 

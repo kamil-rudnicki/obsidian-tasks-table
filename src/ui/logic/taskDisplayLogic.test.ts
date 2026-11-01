@@ -51,6 +51,7 @@ const task: Task = {
   tags: [],
   fields: {},
   links: [],
+  comments: [],
 }
 
 describe('task state', () => {

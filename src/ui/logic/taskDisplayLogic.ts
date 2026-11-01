@@ -54,6 +54,18 @@ export const formatTaskDate = (isoDate: string, today: string): string => {
     : monthDayYear.format(date)
 }
 
+const commentTimePattern = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?/u
+
+// "Today, 14:30" or "Oct 28, 09:12", as written in the note. Other times show as written.
+export const formatCommentTime = (time: string, today: string): string => {
+  const match = commentTimePattern.exec(time)
+  if (!match) {
+    return time
+  }
+  const [, date, clock] = match
+  return clock ? `${formatTaskDate(date, today)}, ${clock}` : formatTaskDate(date, today)
+}
+
 // An inline field value as it reads in a note: links show their text.
 export const getDisplayValue = (value: string): string =>
   value

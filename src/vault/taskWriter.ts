@@ -1,13 +1,13 @@
 import type { App, TFile } from 'obsidian'
-import { getToday, parseIsoDate } from '@shared/dateLogic'
+import { getToday, parseIsoDate, toLocalDateTime } from '@shared/dateLogic'
 import type { Settings } from '@shared/settingsTypes'
-import type { CreateTaskInput, Task, TaskChanges, UpdateTaskInput } from '@shared/taskTypes'
+import type { AddTaskCommentInput, CreateTaskInput, Task, TaskChanges, UpdateTaskInput } from '@shared/taskTypes'
 import { UserError } from '@shared/userError'
 import { getTaskBlock, locateLine, removeLines, replaceLine, type TaskBlock } from './noteEdits'
 import { createNoteFiles, normalizeNotePath, type TargetNote } from './noteFiles'
 import { splitLines, type IndexedTask } from './noteTasks'
 import { toPublicTask, type TaskIndex } from './taskIndex'
-import { applyTaskChanges, createTaskLine, type TaskChangeOptions } from './taskLine'
+import { addTaskComment, applyTaskChanges, createTaskLine, type TaskChangeOptions } from './taskLine'
 import type { VaultIndexer } from './vaultIndexer'
 
 type TaskWriterOptions = {
@@ -161,6 +161,14 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
       return getTaskAt(notePath, line)
     })
 
+  // The comment gets the current local time. The task keeps its id.
+  const addComment = ({ id, text }: AddTaskCommentInput): Promise<Task> =>
+    indexer.runExclusive(async () => {
+      const time = toLocalDateTime(new Date())
+      const { notePath, line } = await editTaskLine(id, (taskLine) => addTaskComment(taskLine, { time, text }))
+      return getTaskAt(notePath, line)
+    })
+
   const deleteTask = (id: string): Promise<void> =>
     indexer.runExclusive(async () => {
       await editTaskLine(id, () => null)
@@ -201,7 +209,7 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
       return getTaskAt(target.notePath, inserted.line)
     })
 
-  return { updateTask, deleteTask, cutTask, createTask }
+  return { updateTask, addComment, deleteTask, cutTask, createTask }
 }
 
 export type TaskWriter = ReturnType<typeof createTaskWriter>

@@ -1,4 +1,4 @@
-import { getToday } from '@shared/dateLogic'
+import { getToday, toLocalDateTime } from '@shared/dateLogic'
 import type { OpenTarget } from '@shared/apiContract'
 import type { Settings } from '@shared/settingsTypes'
 import type { CreateTaskInput, Task, TaskChanges, TaskLink } from '@shared/taskTypes'
@@ -11,15 +11,26 @@ import { applyChangesLocally, getDisplayTitle } from '@/logic/taskDisplayLogic'
 const refreshTasks = (): Promise<void> =>
   queryClient.invalidateQueries({ queryKey: queryKeys.tasks })
 
-export const updateTask = async (task: Task, changes: TaskChanges): Promise<void> => {
-  const settings = queryClient.getQueryData<Settings>(queryKeys.settings)
-  const options = { today: getToday(), setDoneDate: settings?.setDoneDate ?? true }
-
+// Shows a change in every task list before the note is saved. Returns a
+// function that undoes it.
+const changeTaskLocally = async (id: string, change: (task: Task) => Task): Promise<() => void> => {
   await queryClient.cancelQueries({ queryKey: queryKeys.taskLists })
   const snapshots = queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.taskLists })
   queryClient.setQueriesData<Task[]>({ queryKey: queryKeys.taskLists }, (tasks) =>
-    tasks?.map((item) => (item.id === task.id ? applyChangesLocally(item, changes, options) : item)),
+    tasks?.map((item) => (item.id === id ? change(item) : item)),
   )
+
+  return () => {
+    for (const [queryKey, data] of snapshots) {
+      queryClient.setQueryData(queryKey, data)
+    }
+  }
+}
+
+export const updateTask = async (task: Task, changes: TaskChanges): Promise<void> => {
+  const settings = queryClient.getQueryData<Settings>(queryKeys.settings)
+  const options = { today: getToday(), setDoneDate: settings?.setDoneDate ?? true }
+  const undo = await changeTaskLocally(task.id, (item) => applyChangesLocally(item, changes, options))
 
   try {
     const updated = await invoke('tasks:update', { id: task.id, changes })
@@ -27,10 +38,25 @@ export const updateTask = async (task: Task, changes: TaskChanges): Promise<void
       notify(`Moved to ${updated.note}`)
     }
   } catch (error) {
-    for (const [queryKey, data] of snapshots) {
-      queryClient.setQueryData(queryKey, data)
-    }
+    undo()
     notifyError(error)
+  } finally {
+    void refreshTasks()
+  }
+}
+
+// Returns false when the comment could not be saved.
+export const addComment = async (task: Task, text: string): Promise<boolean> => {
+  const comment = { time: toLocalDateTime(new Date()), text: text.replace(/\s+/gu, ' ').trim() }
+  const undo = await changeTaskLocally(task.id, (item) => ({ ...item, comments: [...item.comments, comment] }))
+
+  try {
+    await invoke('tasks:comment', { id: task.id, text: comment.text })
+    return true
+  } catch (error) {
+    undo()
+    notifyError(error)
+    return false
   } finally {
     void refreshTasks()
   }

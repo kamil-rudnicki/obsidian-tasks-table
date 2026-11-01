@@ -332,7 +332,10 @@ export const createTaskPredicate = (
 
   if (search !== '') {
     predicates.push(
-      (task) => fold(task.description).includes(search) || fold(task.note).includes(search),
+      (task) =>
+        fold(task.description).includes(search) ||
+        fold(task.note).includes(search) ||
+        task.comments.some((comment) => fold(comment.text).includes(search)),
     )
   }
 

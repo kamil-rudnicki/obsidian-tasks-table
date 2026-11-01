@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { applyTaskChanges, createTaskLine } from './taskLine'
+import { addTaskComment, applyTaskChanges, createTaskLine } from './taskLine'
 
 const emojiOptions = { format: 'emoji', today: '2026-10-31', setDoneDate: true } as const
 const dataviewOptions = { ...emojiOptions, format: 'dataview' } as const
@@ -130,6 +130,42 @@ describe('tags', () => {
 
   test('changes nothing when the tags are the same', () => {
     expect(setTags('- [ ] Call  #a   now', ['a'])).toBe('- [ ] Call  #a   now')
+  })
+})
+
+describe('comments', () => {
+  const comment = { time: '2026-11-01 14:30', text: 'Called the vendor' }
+
+  test('adds the first comment after the text, before the Tasks metadata', () => {
+    expect(addTaskComment('- [ ] Call vendor #work ⏫ 📅 2026-11-03 ^abc', comment)).toBe(
+      '- [ ] Call vendor #work [comment_2026-11-01 14:30:: Called the vendor] ⏫ 📅 2026-11-03 ^abc',
+    )
+  })
+
+  test('adds a comment after the last one', () => {
+    expect(addTaskComment('- [ ] Call [comment_2026-10-30 09:12:: Left a message] 📅 2026-11-03', comment)).toBe(
+      '- [ ] Call [comment_2026-10-30 09:12:: Left a message] [comment_2026-11-01 14:30:: Called the vendor] 📅 2026-11-03',
+    )
+  })
+
+  test('writes the comment on one line and escapes brackets Dataview would end it at', () => {
+    expect(addTaskComment('- [ ] Call', { ...comment, text: 'Ask  about\nthe ] key' })).toBe(
+      '- [ ] Call [comment_2026-11-01 14:30:: Ask about the \\] key]',
+    )
+    expect(addTaskComment('- [ ] Call', { ...comment, text: 'See [[Notes]] and [docs](https://example.com)' })).toBe(
+      '- [ ] Call [comment_2026-11-01 14:30:: See [[Notes]] and [docs](https://example.com)]',
+    )
+  })
+
+  test('keeps comments, and the tags in them, when the title or the tags change', () => {
+    const line = '- [ ] Plan #a [comment_2026-10-30 09:12:: About #b] 📅 2026-11-03'
+
+    expect(applyTaskChanges(line, { description: 'New title #a' }, emojiOptions)).toBe(
+      '- [ ] New title #a [comment_2026-10-30 09:12:: About #b] 📅 2026-11-03',
+    )
+    expect(applyTaskChanges(line, { tags: ['c'] }, emojiOptions)).toBe(
+      '- [ ] Plan #c [comment_2026-10-30 09:12:: About #b] 📅 2026-11-03',
+    )
   })
 })
 

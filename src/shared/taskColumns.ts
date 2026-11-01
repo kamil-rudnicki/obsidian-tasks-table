@@ -10,6 +10,7 @@ export const taskColumnIds = [
   'startDate',
   'tags',
   'links',
+  'comments',
   'note',
   'folder',
   'createdDate',

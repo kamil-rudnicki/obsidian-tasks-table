@@ -1,6 +1,7 @@
 import type { Settings, SettingsPatch } from '@shared/settingsTypes'
 import type { SyncStatus } from '@shared/syncTypes'
 import type {
+  AddTaskCommentInput,
   CreateTaskInput,
   Task,
   TaskListQuery,
@@ -18,6 +19,8 @@ export type ApiContract = {
   'tasks:list': { input: TaskListQuery; output: Task[] }
   'tasks:create': { input: CreateTaskInput; output: Task }
   'tasks:update': { input: UpdateTaskInput; output: Task }
+  // Adds a comment with the current time to the end of the task's comments.
+  'tasks:comment': { input: AddTaskCommentInput; output: Task }
   'tasks:delete': { input: { id: string }; output: null }
   // Copies the task, with its subtasks, to the clipboard and removes it from its note.
   'tasks:cut': { input: { id: string }; output: null }

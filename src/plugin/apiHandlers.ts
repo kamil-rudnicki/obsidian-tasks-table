@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { openTargets, type ApiChannel, type ApiHandlers, type ApiInput } from '@shared/apiContract'
 import { settingsPatchSchema } from '@shared/settingsTypes'
 import {
+  addTaskCommentInputSchema,
   createTaskInputSchema,
   taskListQuerySchema,
   taskOptionsInputSchema,
@@ -18,6 +19,7 @@ const inputSchemas: { [Channel in ApiChannel]: z.ZodType<ApiInput<Channel>> } = 
   'tasks:list': taskListQuerySchema,
   'tasks:create': createTaskInputSchema,
   'tasks:update': updateTaskInputSchema,
+  'tasks:comment': addTaskCommentInputSchema,
   'tasks:delete': idInputSchema,
   'tasks:cut': idInputSchema,
   'tasks:options': taskOptionsInputSchema,

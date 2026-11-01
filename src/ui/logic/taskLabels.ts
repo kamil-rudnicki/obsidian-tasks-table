@@ -36,6 +36,7 @@ export const columnLabels: Record<TaskColumnId, string> = {
   startDate: 'Start',
   tags: 'Tags',
   links: 'Links',
+  comments: 'Comments',
   note: 'Note',
   folder: 'Folder',
   createdDate: 'Created',

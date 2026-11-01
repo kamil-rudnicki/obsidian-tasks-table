@@ -112,6 +112,40 @@ describe('getDescriptionEnd', () => {
   })
 })
 
+describe('comments', () => {
+  test('reads comments and keeps them out of the description, tags, fields and dates', () => {
+    expect(
+      parseTaskLine('- [ ] Plan [comment_2026-10-30 09:12:: Asked Ann about #budget, moved to 📅 2026-11-05] 📅 2026-11-03'),
+    ).toMatchObject({
+      description: 'Plan',
+      tags: [],
+      fields: {},
+      dates: { dueDate: '2026-11-03' },
+      comments: [{ time: '2026-10-30 09:12', text: 'Asked Ann about #budget, moved to 📅 2026-11-05' }],
+    })
+  })
+
+  test('reads links and escaped brackets in comments', () => {
+    expect(
+      parseTaskLine(
+        '- [ ] Read [comment_2026-10-30:: See [[Notes|notes]] and [docs](https://example.com)] [comment_2026-10-31:: a \\] b]',
+      )?.comments.map(({ time, text }) => ({ time, text })),
+    ).toEqual([
+      { time: '2026-10-30', text: 'See [[Notes|notes]] and [docs](https://example.com)' },
+      { time: '2026-10-31', text: 'a ] b' },
+    ])
+  })
+
+  test('ignores comments in inline code and links', () => {
+    expect(parseTaskLine('- [ ] Code `[comment_2026-10-30:: no]` [[comment_2026-10-30:: no]]')?.comments).toEqual([])
+  })
+
+  test('finds the text before the comments', () => {
+    const parsed = parseTaskLine('- [ ] Call #work [comment_2026-10-30 09:12:: Left a message] 📅 2026-11-03')
+    expect(parsed ? parsed.body.slice(0, getDescriptionEnd(parsed)) : '').toBe('Call #work')
+  })
+})
+
 describe('inline fields', () => {
   test.each([
     ['- [ ] Email admin [type:: work] [id:: 134]', { type: 'work', id: '134' }],

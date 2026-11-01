@@ -8,6 +8,7 @@ import type {
   TaskStatus,
 } from '@shared/taskTypes'
 import type { Settings } from '@shared/settingsTypes'
+import { findComments, type TaskCommentRange } from './taskComments'
 import { extractLinks } from './taskLinks'
 
 export type TaskFormat = Settings['taskFormat']
@@ -39,6 +40,8 @@ export type ParsedTaskLine = {
   // Visible Dataview inline fields (`[key:: value]`) other than the ones above, by lowercase key.
   fields: Record<string, string>
   links: TaskLink[]
+  // Comments are not part of the description, its tags or its links.
+  comments: TaskCommentRange[]
 }
 
 // `- [ ] text`, `* [x] text`, `1. [/] text`, also inside blockquotes and callouts.
@@ -221,18 +224,19 @@ const toMetadataToken = (match: RegExpMatchArray): TaskMetadataToken | null => {
 export const collapseWhitespace = (text: string): string =>
   text.replace(/\s+/gu, ' ').trim()
 
+// The body without the metadata and comments in `ranges`, which are in order.
 const getDescription = (
   body: string,
-  tokens: TaskMetadataToken[],
+  ranges: Array<{ start: number; end: number }>,
   blockIdStart: number | null,
 ): string => {
   const content = blockIdStart === null ? body : body.slice(0, blockIdStart)
   let description = ''
   let cursor = 0
 
-  for (const token of tokens) {
-    description += `${content.slice(cursor, token.start)} `
-    cursor = token.end
+  for (const range of ranges) {
+    description += `${content.slice(cursor, range.start)} `
+    cursor = range.end
   }
 
   return collapseWhitespace(description + content.slice(cursor))
@@ -262,6 +266,7 @@ const normalizeFieldKey = (key: string): string => key.trim().replace(/\s+/gu, '
 const extractInlineFields = (
   body: string,
   protectedRanges: Array<[number, number]>,
+  commentRanges: Array<[number, number]>,
 ): Record<string, string> => {
   const fields: Record<string, string> = {}
 
@@ -274,7 +279,7 @@ const extractInlineFields = (
     )
     const key = normalizeFieldKey(match.groups?.key ?? '')
 
-    if (isProtected || key === '' || builtInFieldKeys.has(key)) {
+    if (isProtected || isInsideRanges(commentRanges, start, end) || key === '' || builtInFieldKeys.has(key)) {
       continue
     }
 
@@ -298,10 +303,13 @@ export const parseTaskLine = (line: string): ParsedTaskLine | null => {
   const blockIdStart = blockIdMatch ? blockIdMatch.index : null
   const searchableBody = blockIdStart === null ? body : body.slice(0, blockIdStart)
   const protectedRanges = getProtectedRanges(searchableBody)
+  const comments = findComments(searchableBody, protectedRanges)
+  const commentRanges = comments.map((comment): [number, number] => [comment.start, comment.end])
+  // Metadata written inside a comment, such as "moved to 📅 2026-11-05", is text.
   const tokens = [...searchableBody.matchAll(metadataPattern)]
     .filter((tokenMatch) =>
       !isInsideRanges(
-        protectedRanges,
+        [...protectedRanges, ...commentRanges],
         tokenMatch.index,
         tokenMatch.index + tokenMatch[0].length,
       ),
@@ -327,7 +335,11 @@ export const parseTaskLine = (line: string): ParsedTaskLine | null => {
     }
   }
 
-  const description = getDescription(body, tokens, blockIdStart)
+  const description = getDescription(
+    body,
+    [...tokens, ...comments].sort((first, second) => first.start - second.start),
+    blockIdStart,
+  )
 
   return {
     prefix,
@@ -341,8 +353,9 @@ export const parseTaskLine = (line: string): ParsedTaskLine | null => {
     priority,
     dates,
     tags: extractTags(description),
-    fields: extractInlineFields(searchableBody, protectedRanges),
+    fields: extractInlineFields(searchableBody, protectedRanges, commentRanges),
     links: extractLinks(description),
+    comments,
   }
 }
 
@@ -354,12 +367,12 @@ const roundFieldPattern =
 const otherTasksFieldPattern =
   /🔁\uFE0F?[ \t]*[a-zA-Z0-9, !]+|🆔\uFE0F?[ \t]*[a-zA-Z0-9_-]+|⛔\uFE0F?[ \t]*[a-zA-Z0-9_-]+(?:[ \t]*,[ \t]*[a-zA-Z0-9_-]+)*|🏁\uFE0F?[ \t]*[a-zA-Z]+/gu
 
-// Where the task's own text ends in `body`: before the metadata, inline fields
-// and block id that follow it. The Tasks plugin writes new tags there too.
+// Where the task's own text ends in `body`: before the metadata, inline fields,
+// comments and block id that follow it. The Tasks plugin writes new tags there too.
 export const getDescriptionEnd = (parsed: ParsedTaskLine): number => {
   const { body } = parsed
   const fieldRanges = [
-    ...parsed.tokens.map((token): [number, number] => [token.start, token.end]),
+    ...[...parsed.tokens, ...parsed.comments].map((range): [number, number] => [range.start, range.end]),
     ...[inlineFieldPattern, roundFieldPattern, otherTasksFieldPattern].flatMap((pattern) =>
       [...body.matchAll(pattern)].map((match): [number, number] => [
         match.index,

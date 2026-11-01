@@ -5,6 +5,10 @@ export const toIsoDate = (date: Date): string =>
 
 export const getToday = (): string => toIsoDate(new Date())
 
+// The local date and time to the minute, as `2026-11-01 14:30`.
+export const toLocalDateTime = (date: Date): string =>
+  `${toIsoDate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+
 export const parseIsoDate = (isoDate: string): Date => {
   const [year, month, day] = isoDate.split('-').map(Number)
   return new Date(year, month - 1, day)

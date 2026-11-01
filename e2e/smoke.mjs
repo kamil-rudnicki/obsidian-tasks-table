@@ -189,6 +189,38 @@ try {
     await page.getByRole('button', { name: 'Clear search' }).click()
   })
 
+  await step('adds a comment and keeps it when the title changes', async () => {
+    await page.getByRole('textbox', { name: 'Search tasks' }).fill('Renew the passport')
+    const row = root.locator('tbody tr', { hasText: 'Renew the passport' })
+    await row.getByRole('button', { name: 'Add a comment' }).click()
+    // The field has the focus; Enter adds the comment with the current time.
+    await page.getByRole('textbox', { name: 'Comment', exact: true }).fill('Book the photo [first]')
+    await page.keyboard.press('Enter')
+    const line = await waitFor(
+      async () => {
+        const current = await lineWith('Notes/Inbox.md', 'Renew the passport')
+        return current?.includes('[comment_') ? current : null
+      },
+      'The comment was not written.',
+    )
+    assert.match(line, /^- \[ \] Renew the passport \[comment_\d{4}-\d{2}-\d{2} \d{2}:\d{2}:: Book the photo \[first\]\]$/u)
+    await page.getByRole('list', { name: 'Comments' }).getByText('Book the photo [first]').waitFor()
+    await page.keyboard.press('Escape')
+    await row.getByRole('button', { name: '1 comment' }).waitFor()
+    // The title editor shows the title without the comment, and a new title keeps it.
+    await row.locator('td[data-col-id=description]').click()
+    const editor = root.locator('[data-slot=data-grid-cell-editor]')
+    await editor.waitFor()
+    assert.equal(await editor.inputValue(), 'Renew the passport')
+    await editor.fill('Renew the passport early')
+    await page.keyboard.press('Enter')
+    await waitFor(
+      async () => (await lineWith('Notes/Inbox.md', 'Renew the passport early'))?.includes(':: Book the photo [first]]'),
+      'The new title did not keep the comment.',
+    )
+    await page.getByRole('button', { name: 'Clear search' }).click()
+  })
+
   await step('adds a task to today’s daily note with Mod+N', async () => {
     // Focus the table without opening an editor, then press the shortcut.
     await root.getByRole('grid').focus()

@@ -94,6 +94,7 @@ export const parseNoteTasks = (
       tags: parsed.tags,
       fields: parsed.fields,
       links: parsed.links,
+      comments: parsed.comments.map(({ time, text }) => ({ time, text })),
     })
   }
 

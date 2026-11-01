@@ -1,4 +1,5 @@
-import type { TaskChanges, TaskStatus } from '@shared/taskTypes'
+import type { TaskChanges, TaskComment, TaskStatus } from '@shared/taskTypes'
+import { formatComment } from './taskComments'
 import {
   blockIdPattern,
   collapseWhitespace,
@@ -27,6 +28,13 @@ const removeRange = (body: string, start: number, end: number): string => {
   }
 
   return body.slice(0, start) + body.slice(end)
+}
+
+// Puts `text` into `body` at `index` as a word of its own.
+const insertWord = (body: string, index: number, text: string): string => {
+  const before = body.slice(0, index)
+  const after = body.slice(index)
+  return `${before}${before === '' ? '' : ' '}${text}${after === '' || /^\s/u.test(after) ? '' : ' '}${after}`
 }
 
 const setField = (
@@ -86,8 +94,10 @@ const setDescription = (line: string, description: string): string => {
     return line
   }
 
-  const metadata = parsed.tokens
-    .map((token) => ` ${parsed.body.slice(token.start, token.end)}`)
+  // The metadata and comments stay, in the order they are written.
+  const metadata = [...parsed.tokens, ...parsed.comments]
+    .sort((first, second) => first.start - second.start)
+    .map((range) => ` ${parsed.body.slice(range.start, range.end)}`)
     .join('')
   const blockId = parsed.blockIdStart === null
     ? ''
@@ -101,7 +111,7 @@ const setDescription = (line: string, description: string): string => {
 }
 
 // Removes the tags that are not in `tags` wherever they are, and adds the new
-// ones after the task's text, before its metadata.
+// ones after the task's text, before its metadata. Tags in comments stay.
 const setTags = (line: string, tags: string[]): string => {
   const parsed = parseTaskLine(line)
 
@@ -113,7 +123,8 @@ const setTags = (line: string, tags: string[]): string => {
   let body = parsed.body
   // Walk from the end so earlier tag positions stay valid.
   for (const range of findTagRanges(body.slice(0, parsed.blockIdStart ?? body.length)).reverse()) {
-    if (!kept.has(range.tag)) {
+    const isInComment = parsed.comments.some((comment) => range.start > comment.start && range.end < comment.end)
+    if (!kept.has(range.tag) && !isInComment) {
       body = removeRange(body, range.start, range.end)
     }
   }
@@ -125,16 +136,27 @@ const setTags = (line: string, tags: string[]): string => {
     return serialize(parsed, parsed.statusSymbol, body)
   }
 
-  const end = getDescriptionEnd(withoutRemoved)
-  const before = withoutRemoved.body.slice(0, end)
-  const after = withoutRemoved.body.slice(end)
   const tagText = added.map((tag) => `#${tag}`).join(' ')
 
   return serialize(
     withoutRemoved,
     withoutRemoved.statusSymbol,
-    `${before}${before === '' ? '' : ' '}${tagText}${after === '' || /^\s/u.test(after) ? '' : ' '}${after}`,
+    insertWord(withoutRemoved.body, getDescriptionEnd(withoutRemoved), tagText),
   )
+}
+
+// A new comment goes after the task's last comment, or after its text when it
+// has none. Either way the Tasks metadata stays at the end of the line, where
+// the Tasks plugin reads it.
+export const addTaskComment = (line: string, comment: TaskComment): string => {
+  const parsed = parseTaskLine(line)
+
+  if (!parsed) {
+    return line
+  }
+
+  const end = parsed.comments.at(-1)?.end ?? getDescriptionEnd(parsed)
+  return serialize(parsed, parsed.statusSymbol, insertWord(parsed.body, end, formatComment(comment)))
 }
 
 export type TaskChangeOptions = {

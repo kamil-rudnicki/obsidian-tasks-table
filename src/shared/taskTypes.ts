@@ -55,6 +55,8 @@ export type Task = {
   fields: Record<string, string>
   // Every link in the task, in the order it appears.
   links: TaskLink[]
+  // Comments on the task, in the order they are written.
+  comments: TaskComment[]
 }
 
 // A wiki link or Markdown link to a note, or a web address.
@@ -63,6 +65,13 @@ export type TaskLink = {
   target: string
   text: string
   external: boolean
+}
+
+// A comment, written in the task line as `[comment_2026-11-01 14:30:: Called the vendor]`.
+export type TaskComment = {
+  // When the comment was written, as the field name holds it.
+  time: string
+  text: string
 }
 
 // A Dataview inline field as a filter, sort or column: `field:type` for `[type:: work]`.
@@ -238,6 +247,12 @@ export const createTaskInputSchema = z.object({
   dueDate: isoDateSchema.nullable().optional(),
 })
 export type CreateTaskInput = z.infer<typeof createTaskInputSchema>
+
+export const addTaskCommentInputSchema = z.object({
+  id: z.string().min(1).max(200),
+  text: z.string().trim().min(1).max(5000),
+})
+export type AddTaskCommentInput = z.infer<typeof addTaskCommentInputSchema>
 
 export const taskOptionFields = ['tags', 'note', 'folder'] as const
 export const taskOptionsInputSchema = z.object({
