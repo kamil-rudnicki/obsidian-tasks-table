@@ -15,6 +15,7 @@ import {
 import { useRender } from "@base-ui/react/use-render"
 import { cva } from "class-variance-authority"
 
+import { parseIsoDate, toIsoDate } from "@shared/dateLogic"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -41,14 +42,22 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group"
+import { Calendar } from "@/components/ui/calendar"
 import { Kbd } from "@/components/ui/kbd"
+import { Popover, PopoverContent } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { AlertCircleIcon, XIcon, CheckIcon, PlusIcon } from "lucide-react"
+import {
+  AlertCircleIcon,
+  CalendarIcon,
+  XIcon,
+  CheckIcon,
+  PlusIcon,
+} from "lucide-react"
 
 // i18n Configuration Interface
 export interface FilterI18nConfig {
@@ -553,6 +562,13 @@ export interface FilterFieldConfig<T = unknown> {
   onInputChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
   // Default operator to use when creating a filter for this field
   defaultOperator?: string
+  // A date field: its options end with an option, labelled `label`, that opens
+  // a calendar. A picked date is an ISO date value, such as "2026-11-05", and
+  // `formatDate` gives its label.
+  datePicker?: {
+    label: string
+    formatDate: (isoDate: string) => string
+  }
   // Controlled values support for this field
   value?: T[]
   onValueChange?: (values: T[]) => void
@@ -609,6 +625,53 @@ const getFieldsMap = <T = unknown,>(
 // breaks the submenu gate for async fields.
 const fieldHasOptions = <T = unknown,>(field: FilterFieldConfig<T>): boolean =>
   (field.options?.length ?? 0) > 0 || typeof field.loadOptions === "function"
+
+// The value of a date field's "Pick a date" option. It opens the calendar and
+// never becomes a filter value.
+const PICK_DATE_VALUE = "pick-date"
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u
+
+// How the calendar was asked for: from the keyboard, it opens with a day focused.
+type DatePickerOpenType = "keyboard" | "pointer"
+
+// A static field's options, with "Pick a date" last for a date field.
+const getStaticOptions = <T = unknown,>(
+  field: FilterFieldConfig<T>,
+  withDatePicker = true
+): FilterOption<T>[] => {
+  const options = field.options ?? []
+  return field.datePicker && withDatePicker
+    ? [
+        ...options,
+        {
+          value: PICK_DATE_VALUE as T,
+          label: field.datePicker.label,
+          icon: <CalendarIcon />,
+        },
+      ]
+    : options
+}
+
+// A date picked from the calendar: an ISO date that is not one of the options.
+const isPickedDate = <T = unknown,>(
+  field: FilterFieldConfig<T>,
+  value: T
+): boolean =>
+  !!field.datePicker &&
+  typeof value === "string" &&
+  ISO_DATE_PATTERN.test(value) &&
+  !field.options?.some((option) => option.value === value)
+
+const getPickedDateOptions = <T = unknown,>(
+  field: FilterFieldConfig<T>,
+  values: T[]
+): FilterOption<T>[] =>
+  values
+    .filter((value) => isPickedDate(field, value))
+    .map((value) => ({
+      value,
+      label: field.datePicker?.formatDate(String(value)) ?? String(value),
+    }))
 
 interface ResolvedFieldOptions<T = unknown> {
   isAsync: boolean
@@ -871,6 +934,8 @@ interface FilterValueSelectorProps<T = unknown> {
   onChange: (values: T[]) => void
   operator: string
   autoFocus?: boolean
+  openDatePicker?: DatePickerOpenType | null
+  onDatePickerOpened?: () => void
 }
 
 interface SelectOptionsPopoverProps<T = unknown> {
@@ -881,6 +946,9 @@ interface SelectOptionsPopoverProps<T = unknown> {
   inline?: boolean
   // Whether several values can be selected; follows the operator when it says.
   multiple?: boolean
+  // Opens a date field's calendar, for a filter added with "Pick a date".
+  openDatePicker?: DatePickerOpenType | null
+  onDatePickerOpened?: () => void
 }
 
 // An operator such as "is any of" can say that it takes several values.
@@ -894,13 +962,30 @@ function SelectOptionsPopover<T = unknown>({
   onClose,
   inline = false,
   multiple,
+  openDatePicker,
+  onDatePickerOpened,
 }: SelectOptionsPopoverProps<T>) {
   const [open, setOpen] = useState(false)
   const [searchInput, setSearchInput] = useState("")
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const [datePickerOpen, setDatePickerOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const calendarRef = useRef<HTMLDivElement>(null)
+  // "Pick a date" closes the menu; the calendar opens once it has closed, so
+  // the menu does not take the focus back from the calendar.
+  const pendingDatePickerRef = useRef(false)
+  const usedKeyboardRef = useRef(false)
   const context = useFilterContext()
   const baseId = useId()
+
+  useEffect(() => {
+    if (openDatePicker) {
+      usedKeyboardRef.current = openDatePicker === "keyboard"
+      setDatePickerOpen(true)
+      onDatePickerOpened?.()
+    }
+  }, [openDatePicker, onDatePickerOpened])
 
   useEffect(() => {
     if (open) {
@@ -930,12 +1015,17 @@ function SelectOptionsPopover<T = unknown>({
   const effectiveValues =
     (field.value !== undefined ? field.value : values) || []
 
-  // Static fields read their list verbatim (unchanged legacy behavior). Async
-  // fields resolve selected values from the value->label cache and take the
-  // loader's (already query-filtered) result as the unselected list.
+  // Static fields read their list verbatim (unchanged legacy behavior), with
+  // picked dates after the options. Async fields resolve selected values from
+  // the value->label cache and take the loader's (already query-filtered)
+  // result as the unselected list.
+  const staticOptions = getStaticOptions(field, !inline)
   const selectedOptions = isAsync
     ? resolveSelected(effectiveValues)
-    : field.options?.filter((opt) => effectiveValues.includes(opt.value)) || []
+    : [
+        ...staticOptions.filter((opt) => effectiveValues.includes(opt.value)),
+        ...getPickedDateOptions(field, effectiveValues),
+      ]
   const selectedValueLabel =
     selectedOptions.length === 1
       ? selectedOptions[0].label
@@ -944,7 +1034,7 @@ function SelectOptionsPopover<T = unknown>({
         : context.i18n.select
   const unselectedOptions = isAsync
     ? resolvedOptions.filter((opt) => !effectiveValues.includes(opt.value))
-    : field.options?.filter((opt) => !effectiveValues.includes(opt.value)) || []
+    : staticOptions.filter((opt) => !effectiveValues.includes(opt.value))
 
   // Filter options based on search input (client-side for static lists; async
   // loaders have already filtered by the query).
@@ -966,9 +1056,23 @@ function SelectOptionsPopover<T = unknown>({
     onClose?.()
   }
 
+  const setValues = (next: T[]) => {
+    if (field.onValueChange) {
+      field.onValueChange(next)
+    } else {
+      onChange(next)
+    }
+  }
+
   // Toggle a single option, shared by the plain and custom (renderOptionList)
   // renderers so both behave identically.
   const toggleOption = (option: FilterOption<T>) => {
+    if (option.value === PICK_DATE_VALUE) {
+      pendingDatePickerRef.current = true
+      handleClose()
+      return
+    }
+
     const isSelected = effectiveValues.includes(option.value)
     const next = isSelected
       ? effectiveValues.filter((v) => v !== option.value)
@@ -985,11 +1089,7 @@ function SelectOptionsPopover<T = unknown>({
       return
     }
 
-    if (field.onValueChange) {
-      field.onValueChange(next)
-    } else {
-      onChange(next)
-    }
+    setValues(next)
     if (!isMultiSelect) handleClose()
   }
 
@@ -1074,30 +1174,7 @@ function SelectOptionsPopover<T = unknown>({
               } else if (e.key === "Enter" && highlightedIndex >= 0) {
                 e.preventDefault()
                 const option = allFilteredOptions[highlightedIndex]
-                if (option) {
-                  const isSelected = effectiveValues.includes(option.value)
-                  const next = isSelected
-                    ? effectiveValues.filter((v) => v !== option.value)
-                    : isMultiSelect
-                      ? ([...effectiveValues, option.value] as T[])
-                      : ([option.value] as T[])
-
-                  if (
-                    !isSelected &&
-                    isMultiSelect &&
-                    field.maxSelections &&
-                    next.length > field.maxSelections
-                  ) {
-                    return
-                  }
-
-                  if (field.onValueChange) {
-                    field.onValueChange(next)
-                  } else {
-                    onChange(next)
-                  }
-                  if (!isMultiSelect) handleClose()
-                }
+                if (option) toggleOption(option)
               }
               // Escape goes on to the menu, which closes.
               if (e.key !== "Escape") e.stopPropagation()
@@ -1170,7 +1247,61 @@ function SelectOptionsPopover<T = unknown>({
     return <div className="w-full">{renderMenuContent()}</div>
   }
 
+  // Opened from the keyboard, focus goes to the selected day, or today, so the
+  // arrow keys pick a date at once. Opened with a pointer, the popup takes it.
+  const getCalendarFocus = (): HTMLElement | null =>
+    usedKeyboardRef.current
+      ? (calendarRef.current?.querySelector<HTMLElement>(
+          '[role="grid"] button[tabindex="0"]'
+        ) ?? null)
+      : calendarRef.current
+
+  const pickedDates = effectiveValues
+    .filter((value) => isPickedDate(field, value))
+    .map((value) => parseIsoDate(String(value)))
+
+  const datePicker = field.datePicker ? (
+    <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+      <PopoverContent
+        ref={calendarRef}
+        anchor={triggerRef}
+        align="start"
+        initialFocus={getCalendarFocus}
+        className="w-auto gap-0 p-0"
+      >
+        {isMultiSelect ? (
+          // Each picked day is a value, next to the options checked in the menu.
+          <Calendar
+            mode="multiple"
+            weekStartsOn={1}
+            selected={pickedDates}
+            defaultMonth={pickedDates.at(-1)}
+            onSelect={(dates) =>
+              setValues([
+                ...effectiveValues.filter((value) => !isPickedDate(field, value)),
+                ...(dates ?? []).map((date) => toIsoDate(date) as T),
+              ])
+            }
+          />
+        ) : (
+          <Calendar
+            mode="single"
+            required
+            weekStartsOn={1}
+            selected={pickedDates[0]}
+            defaultMonth={pickedDates[0]}
+            onSelect={(date) => {
+              setValues([toIsoDate(date) as T])
+              setDatePickerOpen(false)
+            }}
+          />
+        )}
+      </PopoverContent>
+    </Popover>
+  ) : null
+
   return (
+    <>
     <DropdownMenu
       open={open}
       onOpenChange={(open) => {
@@ -1180,8 +1311,15 @@ function SelectOptionsPopover<T = unknown>({
           window.setTimeout(() => setSearchInput(""), 200)
         }
       }}
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen && pendingDatePickerRef.current) {
+          pendingDatePickerRef.current = false
+          setDatePickerOpen(true)
+        }
+      }}
     >
       <DropdownMenuTrigger
+        ref={triggerRef}
         render={
           <Button
             variant="outline"
@@ -1213,10 +1351,18 @@ function SelectOptionsPopover<T = unknown>({
       <DropdownMenuContent
         align="start"
         className={cn("w-[200px] px-0", field.className)}
+        onKeyDownCapture={() => {
+          usedKeyboardRef.current = true
+        }}
+        onPointerDownCapture={() => {
+          usedKeyboardRef.current = false
+        }}
       >
         {renderMenuContent()}
       </DropdownMenuContent>
     </DropdownMenu>
+    {datePicker}
+    </>
   )
 }
 
@@ -1226,6 +1372,8 @@ function FilterValueSelector<T = unknown>({
   onChange,
   operator,
   autoFocus,
+  openDatePicker,
+  onDatePickerOpened,
 }: FilterValueSelectorProps<T>) {
   if (operator === "empty" || operator === "not_empty") {
     return null
@@ -1262,6 +1410,8 @@ function FilterValueSelector<T = unknown>({
       values={values}
       onChange={onChange}
       multiple={multiple}
+      openDatePicker={openDatePicker}
+      onDatePickerOpened={onDatePickerOpened}
     />
   )
 }
@@ -1451,19 +1601,17 @@ function FilterSubmenuContent<T = unknown>({
         ...resolvedOptions.filter((option) => !selectedSet.has(option.value)),
       ]
     }
-    return (
-      field.options?.filter((option) => {
-        const isSelected = currentValues.includes(option.value)
-        if (isSelected) return true
-        if (!searchInput) return true
-        return option.label.toLowerCase().includes(searchInput.toLowerCase())
-      }) || []
-    )
+    return getStaticOptions(field).filter((option) => {
+      const isSelected = currentValues.includes(option.value)
+      if (isSelected) return true
+      if (!searchInput) return true
+      return option.label.toLowerCase().includes(searchInput.toLowerCase())
+    })
   }, [
     isAsync,
     resolvedOptions,
     resolveSelected,
-    field.options,
+    field,
     searchInput,
     currentValues,
   ])
@@ -1716,6 +1864,14 @@ export function Filters<T = unknown>({
   const [lastAddedFilterId, setLastAddedFilterId] = useState<string | null>(
     null
   )
+  // "Pick a date" in this menu adds the filter, then opens its calendar once
+  // the menu has closed.
+  const [datePickerRequest, setDatePickerRequest] = useState<{
+    filterId: string
+    openType: DatePickerOpenType
+  } | null>(null)
+  const pendingDatePickerRef = useRef<typeof datePickerRequest>(null)
+  const usedKeyboardRef = useRef(false)
   const rootInputRef = useRef<HTMLInputElement>(null)
   const rootId = useId()
 
@@ -1763,6 +1919,11 @@ export function Filters<T = unknown>({
 
   // Base UI calls onOpenChange only for closes it starts, so Escape and item
   // selection must end the menu session here or reopening shows a stale search.
+  const clearDatePickerRequest = useCallback(
+    () => setDatePickerRequest(null),
+    []
+  )
+
   const closeAddFilterMenu = () => {
     setAddFilterOpen(false)
     setOpenSubMenu(null)
@@ -1900,11 +2061,23 @@ export function Filters<T = unknown>({
               setActiveMenu("root")
               setHighlightedIndex(filteredFields.length > 0 ? 0 : -1)
             }}
+            onOpenChangeComplete={(open) => {
+              if (!open && pendingDatePickerRef.current) {
+                setDatePickerRequest(pendingDatePickerRef.current)
+                pendingDatePickerRef.current = null
+              }
+            }}
           >
             <DropdownMenuTrigger render={triggerButton} />
             <DropdownMenuContent
               className={cn("w-[220px]", menuPopupClassName)}
               align="start"
+              onKeyDownCapture={() => {
+                usedKeyboardRef.current = true
+              }}
+              onPointerDownCapture={() => {
+                usedKeyboardRef.current = false
+              }}
             >
               {showSearchInput && (
                 <>
@@ -2108,6 +2281,27 @@ export function Filters<T = unknown>({
                                   }}
                                   onClose={closeAddFilterMenu}
                                   onToggle={(value, isSelected) => {
+                                    if (value === PICK_DATE_VALUE) {
+                                      const target =
+                                        sessionFilter ??
+                                        createFilter<T>(
+                                          fieldKey,
+                                          field.defaultOperator ||
+                                            (isMultiSelect ? "is_any_of" : "is"),
+                                          []
+                                        )
+                                      if (!sessionFilter) {
+                                        onChange([...filters, target])
+                                      }
+                                      pendingDatePickerRef.current = {
+                                        filterId: target.id,
+                                        openType: usedKeyboardRef.current
+                                          ? "keyboard"
+                                          : "pointer",
+                                      }
+                                      closeAddFilterMenu()
+                                      return
+                                    }
                                     if (isMultiSelect) {
                                       const nextValues = isSelected
                                         ? currentValues.filter(
@@ -2216,6 +2410,12 @@ export function Filters<T = unknown>({
                 operator={filter.operator}
                 onChange={(values) => updateFilter(filter.id, { values })}
                 autoFocus={filter.id === lastAddedFilterId}
+                openDatePicker={
+                  datePickerRequest?.filterId === filter.id
+                    ? datePickerRequest.openType
+                    : null
+                }
+                onDatePickerOpened={clearDatePickerRequest}
               />
               <FilterRemoveButton onClick={() => removeFilter(filter.id)} />
             </ButtonGroup>

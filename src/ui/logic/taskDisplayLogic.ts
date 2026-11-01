@@ -44,11 +44,17 @@ export const formatTaskDate = (isoDate: string, today: string): string => {
     return 'Yesterday'
   }
 
-  const date = parseIsoDate(isoDate)
   if (isoDate > today && isoDate <= addDays(today, 6)) {
-    return weekday.format(date)
+    return weekday.format(parseIsoDate(isoDate))
   }
 
+  return formatExactDate(isoDate, today)
+}
+
+// A date that does not move with today, such as a picked filter date:
+// "Nov 5", or "Nov 5, 2025" in another year.
+export const formatExactDate = (isoDate: string, today: string): string => {
+  const date = parseIsoDate(isoDate)
   return date.getFullYear() === parseIsoDate(today).getFullYear()
     ? monthDay.format(date)
     : monthDayYear.format(date)

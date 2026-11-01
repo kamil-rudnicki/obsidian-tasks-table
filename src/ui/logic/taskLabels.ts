@@ -67,9 +67,11 @@ export const levelLabels: Record<TaskLevel, string> = {
 }
 
 // "Daily note is Any day" keeps tasks from daily notes; "is not" keeps the others.
+// Tomorrow's note holds the tasks planned for it.
 export const dailyNoteBucketLabels: Array<{ value: DateBucket; label: string }> = [
   { value: 'any', label: 'Any day' },
   { value: 'today', label: 'Today' },
+  { value: 'tomorrow', label: 'Tomorrow' },
   { value: 'yesterday', label: 'Yesterday' },
   { value: 'last_7_days', label: 'Last 7 days' },
   { value: 'last_30_days', label: 'Last 30 days' },

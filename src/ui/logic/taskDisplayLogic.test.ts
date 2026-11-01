@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import type { Task } from '@shared/taskTypes'
-import { applyChangesLocally, formatTaskDate, getDisplayTitle, getDisplayValue, isOverdue } from './taskDisplayLogic'
+import {
+  applyChangesLocally,
+  formatExactDate,
+  formatTaskDate,
+  getDisplayTitle,
+  getDisplayValue,
+  isOverdue,
+} from './taskDisplayLogic'
 
 describe('getDisplayTitle', () => {
   test.each([
@@ -28,6 +35,12 @@ describe('formatTaskDate', () => {
     ['2025-01-02', 'Jan 2, 2025'],
   ])('formats %s', (date, label) => {
     expect(formatTaskDate(date, today)).toBe(label)
+  })
+
+  test('formats a fixed date without words relative to today', () => {
+    expect(formatExactDate('2026-10-31', today)).toBe('Oct 31')
+    expect(formatExactDate('2026-11-03', today)).toBe('Nov 3')
+    expect(formatExactDate('2025-01-02', today)).toBe('Jan 2, 2025')
   })
 })
 

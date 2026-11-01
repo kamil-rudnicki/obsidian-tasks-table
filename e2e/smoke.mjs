@@ -252,6 +252,30 @@ try {
     await filterDailyNote('Today')
     await root.getByText('1 result', { exact: true }).waitFor()
     assert.equal(await root.locator('tbody tr', { hasText: 'Buy milk' }).count(), 1)
+    // A day picked from the calendar. Opened from the keyboard, the calendar
+    // focuses today, so the left arrow moves to yesterday.
+    // The Filter menu gives the focus back to its button as it closes, so the
+    // keys wait until it is gone and the value menu has the focus.
+    await page.locator('[data-slot=dropdown-menu-content]').waitFor({ state: 'detached' })
+    await root.getByRole('button', { name: 'Daily note: Today' }).focus()
+    await page.keyboard.press('Enter')
+    await page.waitForFunction(() => document.activeElement?.closest('[data-slot=dropdown-menu-content]'))
+    await page.keyboard.press('End')
+    await page.waitForFunction(() => document.activeElement?.textContent === 'Pick a date…')
+    await page.keyboard.press('Enter')
+    await page.locator('[data-slot=popover-content][data-open] [role=grid]').waitFor()
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('Enter')
+    await root.getByText('2 results', { exact: true }).waitFor()
+    const yesterday = await page.evaluate(() => window.moment().subtract(1, 'day').format('YYYY-MM-DD'))
+    await waitFor(
+      async () =>
+        (await page.evaluate(async () => {
+          const views = await window.app.plugins.plugins['tasks-table'].services.invoke('views:list', null)
+          return views.find((view) => view.name === 'All tasks').config.filters.flatMap((filter) => filter.values).join()
+        })) === yesterday,
+      'The view did not save the picked day.',
+    )
     await root.getByRole('button', { name: 'Remove filter' }).click()
   })
 

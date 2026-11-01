@@ -11,6 +11,7 @@ import {
   TextIcon,
   type LucideIcon,
 } from 'lucide-react'
+import { getToday } from '@shared/dateLogic'
 import { taskLevels, taskPriorities, taskStatuses, toInlineFieldId, type TaskOptionsInput } from '@shared/taskTypes'
 import type { FilterFieldConfig, FilterI18nConfig, FilterOperator } from '@/components/reui/filters'
 import { TagColorDot } from '@/components/TagBadge/TagBadge'
@@ -25,6 +26,7 @@ import {
   priorityLabels,
   statusLabels,
 } from '@/logic/taskLabels'
+import { formatExactDate } from '@/logic/taskDisplayLogic'
 
 // "is" and "is not" take one value; "is any of" and "is not any of" take several.
 const choiceOperators: FilterOperator[] = [
@@ -41,6 +43,12 @@ const dateOperators: FilterOperator[] = [
 ]
 
 const fieldIcon = (Icon: LucideIcon) => <Icon className='size-3.5' />
+
+// Date fields also take one day picked from a calendar, such as "Nov 5".
+const datePicker: FilterFieldConfig['datePicker'] = {
+  label: 'Pick a date…',
+  formatDate: (isoDate) => formatExactDate(isoDate, getToday()),
+}
 
 const inlineFieldOperators: FilterOperator[] = [
   ...choiceOperators,
@@ -81,6 +89,7 @@ const dateField = (
   defaultOperator: 'is',
   className: 'w-40',
   options: getDateBucketLabels(key),
+  datePicker,
 })
 
 const builtInFilterFields: FilterFieldConfig[] = [
@@ -155,6 +164,7 @@ const builtInFilterFields: FilterFieldConfig[] = [
     defaultOperator: 'is',
     className: 'w-40',
     options: dailyNoteBucketLabels,
+    datePicker,
   },
   {
     key: 'folder',

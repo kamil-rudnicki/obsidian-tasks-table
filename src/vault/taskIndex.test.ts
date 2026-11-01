@@ -123,6 +123,10 @@ describe('task index', () => {
     expect(list([{ field: 'dailyNote', operator: 'is_any_of', values: ['any'] }])).toEqual(daily)
     expect(list([{ field: 'dailyNote', operator: 'is_any_of', values: ['yesterday'] }])).toEqual(daily)
     expect(list([{ field: 'dailyNote', operator: 'is_any_of', values: ['today'] }])).toEqual([])
+    expect(list([{ field: 'dailyNote', operator: 'is', values: ['tomorrow'] }])).toEqual([])
+    // A day picked from the calendar.
+    expect(list([{ field: 'dailyNote', operator: 'is', values: ['2026-10-30'] }])).toEqual(daily)
+    expect(list([{ field: 'dailyNote', operator: 'is_any_of', values: ['tomorrow', '2026-10-29'] }])).toEqual([])
     expect(list([{ field: 'dailyNote', operator: 'is_not_any_of', values: ['any'] }])).toEqual([
       'Ship 100% beta',
       'Plan v2',
