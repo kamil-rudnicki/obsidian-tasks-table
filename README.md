@@ -21,7 +21,7 @@ Tasks Table shows the tasks from every note in your vault in one table, in the s
 - Tags: each tag has its own color, one of the theme's accent colors, picked from its name. Select a Tags cell to add or remove tags: search the vault's tags (listed by name), or type a new name and press <kbd>Enter</kbd> (spaces become dashes). The note changes once, when you close the editor. New tags go after the task text, before its dates and fields; removed tags are taken out wherever they are in the text.
 - Changing a start date moves the task, with its subtasks and notes, to that day's daily note. The daily note is created from the Daily notes template when it does not exist. The task is added there first and removed from its old note after that, so a failed write never loses it.
 - Select a note name to open the note at the task's line. <kbd>Mod</kbd>-select opens it to the right.
-- Follows the Obsidian theme: colors, accent, light or dark mode, and the text font of your notes.
+- Follows the Obsidian theme: colors, accent, light or dark mode, and the text font of your notes. Scroll bars show and hide as your system's scroll bars do (**System Settings → Appearance → Show scroll bars** on macOS).
 
 Open the table with the ribbon icon or the **Tasks Table: Open table** command. The plugin also adds **Add task** and **Rebuild task index** commands.
 

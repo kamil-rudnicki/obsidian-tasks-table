@@ -32,13 +32,21 @@ const INITIAL_METRICS = {
   trackHeight: 0,
 } as const
 
+// How long the scroll bars stay after the grid stops scrolling, when they hide
+// as the OS's overlay scroll bars do.
+const SCROLLBAR_HIDE_DELAY = 800
+
+// With overlay scroll bars in the OS, a track shows only while the grid
+// scrolls, under the pointer or while dragged, and fades out after that.
+const SCROLLBAR_AUTO_HIDE_CLASSNAME =
+  "transition-opacity duration-100 motion-reduce:transition-none [[data-scrollbars=overlay]:not([data-scrolling])_&:not(:hover,:active)]:opacity-0 [[data-scrollbars=overlay]:not([data-scrolling])_&:not(:hover,:active)]:duration-300"
+
 // Track footprint: --data-grid-scrollbar-size (10px by default) in both
 // orientations, less 1px for the transparent border and 2px for p-px, so every
 // thumb lands at that size less 3px (7px), held 1px off the grid edge. Thinner
 // was hard to grab; the tracks overlay the last row and column, so the default
 // stays under 12px. The sticky-header overlay below follows the same variable.
-const SCROLLBAR_CLASSNAME =
-  "flex touch-none p-px transition-colors select-none data-[orientation=horizontal]:mb-px data-[orientation=horizontal]:h-[var(--data-grid-scrollbar-size,0.625rem)] data-[orientation=horizontal]:flex-col data-[orientation=horizontal]:border-t data-[orientation=horizontal]:border-t-transparent data-[orientation=vertical]:me-px data-[orientation=vertical]:h-full data-[orientation=vertical]:w-[var(--data-grid-scrollbar-size,0.625rem)] data-[orientation=vertical]:border-s data-[orientation=vertical]:border-s-transparent"
+const SCROLLBAR_CLASSNAME = `${SCROLLBAR_AUTO_HIDE_CLASSNAME} flex touch-none p-px select-none data-[orientation=horizontal]:mb-px data-[orientation=horizontal]:h-[var(--data-grid-scrollbar-size,0.625rem)] data-[orientation=horizontal]:flex-col data-[orientation=horizontal]:border-t data-[orientation=horizontal]:border-t-transparent data-[orientation=vertical]:me-px data-[orientation=vertical]:h-full data-[orientation=vertical]:w-[var(--data-grid-scrollbar-size,0.625rem)] data-[orientation=vertical]:border-s data-[orientation=vertical]:border-s-transparent`
 
 // The ::before reaches the track's outer edge, so the whole track thickness
 // grabs the thumb rather than only its painted 7px.
@@ -103,6 +111,18 @@ function getStickyFooterHeight(table: HTMLElement | null) {
   return isSticky ? footer.getBoundingClientRect().height : 0
 }
 
+// Overlay scroll bars take no room. macOS shows them when its "Show scroll
+// bars" setting is "When scrolling", or "Automatically" with a trackpad. The
+// probe is measured inside the grid, so the page's scroll bar styles apply.
+function hasOverlayScrollbars(container: HTMLElement) {
+  const probe = container.createDiv({
+    cls: "pointer-events-none invisible absolute size-24 overflow-scroll",
+  })
+  const scrollbarWidth = probe.offsetWidth - probe.clientWidth
+  probe.remove()
+  return scrollbarWidth === 0
+}
+
 function applyMetrics(element: HTMLElement, metrics: ScrollbarMetrics) {
   element.style.setProperty(
     "--data-grid-scrollbar-header-height",
@@ -157,6 +177,42 @@ function DataGridScrollArea({
   const scrollbarInsetEnd = isColumnsPinnable ? table.getEndTotalSize() : 0
   const [hasCustomVerticalOverflow, setHasCustomVerticalOverflow] =
     useState(false)
+  const [autoHideScrollbars, setAutoHideScrollbars] = useState(false)
+
+  // The OS setting can change while the grid is open, or a mouse can be
+  // plugged in, so the pointer entering the grid reads it again.
+  const readScrollbarStyle = useCallback(() => {
+    const container = containerRef.current
+    if (!container) return
+    const next = hasOverlayScrollbars(container)
+    setAutoHideScrollbars((prev) => (prev === next ? prev : next))
+  }, [])
+
+  useLayoutEffect(readScrollbarStyle, [readScrollbarStyle])
+
+  // Marks the grid as scrolling until it stops for a moment. The attribute is
+  // set on the element directly, so scrolling renders nothing.
+  useEffect(() => {
+    const container = containerRef.current
+    const viewport = viewportRef.current
+    if (!container || !viewport) return
+
+    let hideTimer: number | undefined
+    const handleScroll = () => {
+      container.setAttribute("data-scrolling", "")
+      window.clearTimeout(hideTimer)
+      hideTimer = window.setTimeout(
+        () => container.removeAttribute("data-scrolling"),
+        SCROLLBAR_HIDE_DELAY
+      )
+    }
+
+    viewport.addEventListener("scroll", handleScroll, { passive: true })
+    return () => {
+      viewport.removeEventListener("scroll", handleScroll)
+      window.clearTimeout(hideTimer)
+    }
+  }, [])
 
   // Base UI's thumb math reads direction from its own context, which a Radix
   // app or a bare dir="rtl" page never provides, so RTL scrolled with LTR math
@@ -466,7 +522,12 @@ function DataGridScrollArea({
 
   return (
     <DirectionProvider direction={isLayoutRtl ? "rtl" : inheritedDirection}>
-      <div ref={containerRef} className="relative">
+      <div
+        ref={containerRef}
+        className="relative"
+        data-scrollbars={autoHideScrollbars ? "overlay" : undefined}
+        onPointerEnter={readScrollbarStyle}
+      >
         <ScrollAreaPrimitive.Root
           data-slot="data-grid-scroll-area"
           // Styling hook: present while the sticky-header scroll mode detects
@@ -532,7 +593,10 @@ function DataGridScrollArea({
             className="pointer-events-none absolute inset-e-px top-(--data-grid-scrollbar-header-height) z-20 h-(--data-grid-scrollbar-track-height)"
           >
             <div
-              className="pointer-events-auto relative h-full w-[var(--data-grid-scrollbar-size,0.625rem)] touch-none p-px"
+              className={cn(
+                SCROLLBAR_AUTO_HIDE_CLASSNAME,
+                "pointer-events-auto relative h-full w-[var(--data-grid-scrollbar-size,0.625rem)] touch-none p-px"
+              )}
               onPointerDown={handleTrackPointerDown}
             >
               <div
