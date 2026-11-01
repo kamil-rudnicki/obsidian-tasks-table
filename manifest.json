@@ -1,7 +1,7 @@
 {
 	"id": "tasks-table",
 	"name": "Tasks Table",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"minAppVersion": "1.13.0",
 	"description": "See the tasks of every note in one table with saved views, filters, sorting and properties.",
 	"author": "Kamil Rudnicki",
