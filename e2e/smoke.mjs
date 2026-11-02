@@ -113,6 +113,23 @@ try {
     )
   })
 
+  await step('puts a task off for later from the status menu', async () => {
+    await page.getByRole('textbox', { name: 'Search tasks' }).fill('Plan v2')
+    const row = root.locator('tbody tr', { hasText: 'Plan v2' })
+    await row.getByRole('button', { name: 'Status: To do' }).click()
+    await page.getByRole('menuitemradio', { name: 'Later' }).click()
+    await waitFor(
+      async () => (await lineWith('Projects/Website.md', 'Plan v2'))?.startsWith('- [>] Plan v2'),
+      'The task was not put off for later.',
+    )
+    await row.getByRole('button', { name: 'Status: Later' }).click()
+    await page.getByRole('menuitemradio', { name: 'To do' }).click()
+    await waitFor(
+      async () => (await lineWith('Projects/Website.md', 'Plan v2'))?.startsWith('- [ ] Plan v2'),
+      'The task did not go back to To do.',
+    )
+  })
+
   await step('adds and removes tags in the Tags cell', async () => {
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Book dentist')
     const row = root.locator('tbody tr', { hasText: 'Book dentist' })
@@ -416,7 +433,14 @@ try {
         const { grouping, collapsedGroups } = views.find((view) => view.name === 'All tasks').config
         return `${grouping.map((level) => level.field).join()} ${collapsedGroups.join()}`
       })
-    await root.getByRole('button', { name: 'Group', exact: true }).click()
+    // An open, empty search field closes only after a press on Group is over,
+    // so the button stays under the pointer: a press as long as a person's opens it.
+    const search = page.getByRole('textbox', { name: 'Search tasks' })
+    if (!(await search.count())) {
+      await root.getByRole('button', { name: 'Search' }).click()
+    }
+    await search.fill('')
+    await root.getByRole('button', { name: 'Group', exact: true }).click({ delay: 80 })
     await page.getByRole('combobox', { name: 'Group property' }).click()
     await page.getByRole('option', { name: 'Status', exact: true }).click()
     await page.keyboard.press('Escape')

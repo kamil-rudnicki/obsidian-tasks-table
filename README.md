@@ -8,6 +8,7 @@ Tasks Table shows the tasks from every note in your vault in one table, in the s
 
 - Indexes `- [ ]` tasks in every note, also in callouts and numbered lists. Fenced code and front matter are skipped.
 - Reads the Obsidian Tasks emoji format (`📅 2026-11-02`, `⏫`) and the Dataview format (`[due:: 2026-11-02]`, `[priority:: high]`).
+- Statuses: **To do** `[ ]`, **In progress** `[/]`, **Later** `[>]`, **Done** `[x]` and **Cancelled** `[-]`. **Later** is a task put off for now: it stays open, so a past due date still shows as overdue, and the **Open** view leaves it out. Other checkbox symbols read as **To do** and keep their symbol.
 - Saved views with filters, sorting, visible properties, column order and widths. Views save as you change them, like Bases.
 - **Sort**: several sort rules, reordered by dragging. Tags sort by the first tag, then the next ones; numbers in fields sort as numbers.
 - **Filter**: status, priority, dates (overdue, today, next 7 days and more), tags (nested tags match), note, folder and daily note (tasks from any daily note, or from today's, tomorrow's, yesterday's or the last 7 days' notes). Date filters also take a day picked from a calendar with **Pick a date…**. Daily notes are the notes in the Daily notes folder whose names match its date format. **Level** keeps first-level tasks or subtasks, which are tasks inside another list item (a task or a bullet).

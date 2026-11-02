@@ -80,8 +80,10 @@ export const getDisplayValue = (value: string): string =>
     )
     .replace(markdownLinkPattern, '$1')
 
+// A task put off for later is still open: its title is not struck through, and
+// a past due date still shows as overdue.
 export const isOpenTask = (task: Pick<Task, 'status'>): boolean =>
-  task.status === 'todo' || task.status === 'in_progress'
+  task.status !== 'done' && task.status !== 'cancelled'
 
 export const isOverdue = (task: Pick<Task, 'status' | 'dueDate'>, today: string): boolean =>
   isOpenTask(task) && task.dueDate !== null && task.dueDate < today

@@ -13,6 +13,7 @@ import {
 export const statusLabels: Record<TaskStatus, string> = {
   todo: 'To do',
   in_progress: 'In progress',
+  later: 'Later',
   done: 'Done',
   cancelled: 'Cancelled',
 }

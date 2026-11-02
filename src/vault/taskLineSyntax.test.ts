@@ -14,7 +14,8 @@ describe('parseTaskLine', () => {
     ['- [X] Buy milk', 'done', 'X'],
     ['- [/] Buy milk', 'in_progress', '/'],
     ['- [-] Buy milk', 'cancelled', '-'],
-    ['- [>] Buy milk', 'todo', '>'],
+    ['- [>] Buy milk', 'later', '>'],
+    ['- [?] Buy milk', 'todo', '?'],
   ])('reads the status of %s', (line, status, symbol) => {
     expect(parseTaskLine(line)).toMatchObject({ status, statusSymbol: symbol })
   })

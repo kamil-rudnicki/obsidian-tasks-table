@@ -35,9 +35,14 @@ describe('applyTaskChanges', () => {
     )
   })
 
+  test('puts a task off for later and removes its done date', () => {
+    expect(applyTaskChanges('- [ ] Plan', { status: 'later' }, emojiOptions)).toBe('- [>] Plan')
+    expect(applyTaskChanges('- [x] Plan ✅ 2024-01-28', { status: 'later' }, emojiOptions)).toBe('- [>] Plan')
+  })
+
   test('keeps an unknown status symbol when the status does not change', () => {
-    expect(applyTaskChanges('- [>] Later', { status: 'todo', priority: 'high' }, emojiOptions)).toBe(
-      '- [>] Later ⏫',
+    expect(applyTaskChanges('- [?] Ask', { status: 'todo', priority: 'high' }, emojiOptions)).toBe(
+      '- [?] Ask ⏫',
     )
   })
 

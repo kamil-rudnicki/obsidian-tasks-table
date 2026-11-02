@@ -71,6 +71,8 @@ describe('task state', () => {
   test('finds overdue open tasks only', () => {
     expect(isOverdue(task, '2026-10-31')).toBe(true)
     expect(isOverdue({ ...task, status: 'done' }, '2026-10-31')).toBe(false)
+    // A task put off for later is still open.
+    expect(isOverdue({ ...task, status: 'later' }, '2026-10-31')).toBe(true)
     expect(isOverdue({ ...task, dueDate: null }, '2026-10-31')).toBe(false)
   })
 

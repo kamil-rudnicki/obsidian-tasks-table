@@ -117,6 +117,7 @@ const statusForSymbol: Record<string, TaskStatus> = {
   x: 'done',
   X: 'done',
   '/': 'in_progress',
+  '>': 'later',
   '-': 'cancelled',
 }
 
@@ -124,6 +125,7 @@ export const symbolForStatus: Record<TaskStatus, string> = {
   todo: ' ',
   done: 'x',
   in_progress: '/',
+  later: '>',
   cancelled: '-',
 }
 

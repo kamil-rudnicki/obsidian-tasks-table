@@ -1,10 +1,11 @@
-import { CircleCheckIcon, CircleDotIcon, CircleIcon, CircleXIcon, type LucideIcon } from 'lucide-react'
+import { CircleCheckIcon, CircleDotIcon, CircleIcon, CircleXIcon, ClockIcon, type LucideIcon } from 'lucide-react'
 import type { TaskStatus } from '@shared/taskTypes'
 import { cn } from '@/lib/utils'
 
 const statusIcons: Record<TaskStatus, LucideIcon> = {
   todo: CircleIcon,
   in_progress: CircleDotIcon,
+  later: ClockIcon,
   done: CircleCheckIcon,
   cancelled: CircleXIcon,
 }
@@ -12,6 +13,7 @@ const statusIcons: Record<TaskStatus, LucideIcon> = {
 const statusIconClassNames: Record<TaskStatus, string> = {
   todo: 'text-muted-foreground',
   in_progress: 'text-status-in-progress',
+  later: 'text-muted-foreground',
   done: 'text-status-done',
   cancelled: 'text-muted-foreground',
 }

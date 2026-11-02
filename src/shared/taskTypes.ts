@@ -1,6 +1,8 @@
 import { z } from 'zod'
 
-export const taskStatuses = ['todo', 'in_progress', 'done', 'cancelled'] as const
+// Later is a task put off for now, written `- [>]`, the "forwarded" status of
+// the Tasks plugin and of themes with alternative checkboxes.
+export const taskStatuses = ['todo', 'in_progress', 'later', 'done', 'cancelled'] as const
 export const taskStatusSchema = z.enum(taskStatuses)
 export type TaskStatus = z.infer<typeof taskStatusSchema>
 

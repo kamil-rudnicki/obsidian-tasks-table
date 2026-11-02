@@ -6,8 +6,9 @@ import type { TaskPriority, TaskStatus } from './taskTypes'
 export const statusRanks: Record<TaskStatus, number> = {
   in_progress: 0,
   todo: 1,
-  done: 2,
-  cancelled: 3,
+  later: 2,
+  done: 3,
+  cancelled: 4,
 }
 
 // Higher is more urgent, so sorting by priority descending lists urgent tasks first.
