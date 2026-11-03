@@ -5,7 +5,21 @@ import { formatComment } from '../vault/taskComments'
 // app through its link scheme. The chat works in `folder`, a full path, and
 // the prompt fills its message box: the app sends nothing until you press Enter.
 
-const appNames: Record<ChatApp, string> = { chatgpt: 'ChatGPT', claude: 'Claude' }
+type Agent = {
+  name: string
+  // A link back to the agent's chat, with `{id}` for the chat's id.
+  chatLink: string
+  // The environment variable that holds that id in the agent's shell.
+  idVariable: string
+}
+
+// ChatGPT runs the Codex agent, which sets CODEX_THREAD_ID. Claude Desktop
+// sets CLAUDE_CODE_HOST_SESSION_ID to its `local_` session id, which its
+// `code/continue` link opens.
+const agents: Record<ChatApp, Agent> = {
+  chatgpt: { name: 'ChatGPT', chatLink: 'codex://threads/{id}', idVariable: 'CODEX_THREAD_ID' },
+  claude: { name: 'Claude', chatLink: 'claude://code/continue?session={id}', idVariable: 'CLAUDE_CODE_HOST_SESSION_ID' },
+}
 
 type TaskPromptInput = {
   app: ChatApp
@@ -17,13 +31,17 @@ type TaskPromptInput = {
 }
 
 // Asks for help with the task, and asks the agent to note on the task, in the
-// form the Comments column reads, that it is running.
-export const createTaskPrompt = ({ app, line, notePath, time }: TaskPromptInput): string =>
-  [
+// form the Comments column reads, that it is running and where its chat is.
+export const createTaskPrompt = ({ app, line, notePath, time }: TaskPromptInput): string => {
+  const { name, chatLink, idVariable } = agents[app]
+  const comment = formatComment({ time, text: `Agent is running in ${chatLink}` })
+
+  return [
     `Help me with this task ${line.trim()} ${notePath}.`,
-    `Before you start, add this comment to that task's line in the note: ${formatComment({ time, text: `${appNames[app]} agent is running` })}. ` +
+    `Before you start, add this comment to that task's line in the note: ${comment}, with {id} replaced by the value of the ${idVariable} environment variable. If that variable is empty, write ${name} in place of the link. ` +
       'A comment is [comment_YYYY-MM-DD HH:mm:: text] with the local date and time. It goes after the task text and its other comments, before its dates and fields, such as 📅 2026-11-05.',
   ].join('\n\n')
+}
 
 const encode = encodeURIComponent
 

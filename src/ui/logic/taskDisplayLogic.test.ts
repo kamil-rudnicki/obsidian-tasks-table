@@ -4,6 +4,7 @@ import {
   applyChangesLocally,
   formatExactDate,
   formatTaskDate,
+  getCommentParts,
   getDisplayTitle,
   getDisplayValue,
   isOverdue,
@@ -20,6 +21,35 @@ describe('getDisplayTitle', () => {
     ['Read [source:: [[Meeting notes|Notes]]] [person name:: Ann]', 'Read'],
   ])('shows %s as %s', (description, title) => {
     expect(getDisplayTitle(description)).toBe(title)
+  })
+})
+
+describe('getCommentParts', () => {
+  test('shows a link back to an agent chat as the app', () => {
+    expect(getCommentParts('Agent is running in codex://threads/01a1a0f1-5cbe-7ba1-90ad-c88f7ee78632')).toEqual([
+      { text: 'Agent is running in ' },
+      { text: 'ChatGPT', url: 'codex://threads/01a1a0f1-5cbe-7ba1-90ad-c88f7ee78632' },
+    ])
+    expect(getCommentParts('Agent is running in claude://code/continue?session=local_ab12')).toEqual([
+      { text: 'Agent is running in ' },
+      { text: 'Claude', url: 'claude://code/continue?session=local_ab12' },
+    ])
+  })
+
+  test('keeps web addresses and Markdown links, without the punctuation after them', () => {
+    expect(getCommentParts('See https://example.com/a?b=1. And [docs](https://example.com/docs), [[Notes|notes]]')).toEqual([
+      { text: 'See ' },
+      { text: 'https://example.com/a?b=1', url: 'https://example.com/a?b=1' },
+      { text: '. And ' },
+      { text: 'docs', url: 'https://example.com/docs' },
+      { text: ', notes' },
+    ])
+  })
+
+  test('keeps links with other schemes as text', () => {
+    expect(getCommentParts('Run [this](javascript:alert) or file:///etc/hosts')).toEqual([
+      { text: 'Run this or file:///etc/hosts' },
+    ])
   })
 })
 

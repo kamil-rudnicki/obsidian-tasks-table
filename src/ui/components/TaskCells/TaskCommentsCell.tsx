@@ -1,15 +1,36 @@
 import { useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type SubmitEvent } from 'react'
-import { ArrowUpIcon, MessageSquareIcon } from 'lucide-react'
+import { ArrowUpIcon, ArrowUpRightIcon, MessageSquareIcon } from 'lucide-react'
 import { getToday } from '@shared/dateLogic'
 import type { Task } from '@shared/taskTypes'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { addComment } from '@/logic/taskActions'
-import { formatCommentTime, getDisplayValue } from '@/logic/taskDisplayLogic'
+import { formatCommentTime, getCommentParts } from '@/logic/taskDisplayLogic'
 import { cellTriggerClassName } from './cellTriggerClassName'
 
 const getCountLabel = (count: number): string => (count === 1 ? '1 comment' : `${count} comments`)
+
+// Looks like a link in a note. It wraps with the text, so long addresses do too.
+const commentLinkClassName =
+  'rounded-sm text-link underline decoration-link/40 underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [@media(hover:hover)]:hover:text-link-hover [@media(hover:hover)]:hover:decoration-link-hover'
+
+// The comment's text, with its links, such as an agent's chat, ready to open.
+// Obsidian opens them outside the app, and asks first for a new kind of link.
+const CommentText = ({ text }: { text: string }) => (
+  <p className='wrap-break-word select-text'>
+    {getCommentParts(text).map((part, index) =>
+      part.url ? (
+        <a key={index} href={part.url} target='_blank' rel='noopener noreferrer' className={commentLinkClassName}>
+          {part.text}
+          <ArrowUpRightIcon aria-hidden='true' className='ms-0.5 inline-block size-3 align-[-1px]' />
+        </a>
+      ) : (
+        <span key={index}>{part.text}</span>
+      ),
+    )}
+  </p>
+)
 
 const scrollToEnd = (list: HTMLElement | null): void => {
   if (list) {
@@ -79,7 +100,7 @@ export const TaskCommentsCell = ({ task }: { task: Task }) => {
                 <time dateTime={comment.time} className='text-xs text-muted-foreground tabular-nums'>
                   {formatCommentTime(comment.time, today)}
                 </time>
-                <p className='wrap-break-word select-text'>{getDisplayValue(comment.text)}</p>
+                <CommentText text={comment.text} />
               </li>
             ))}
           </ol>

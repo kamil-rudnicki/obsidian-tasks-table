@@ -4,7 +4,7 @@ import { createChatLink, createTaskPrompt } from './chatLinks'
 const folder = '/Users/kamil/Developer/personal-productivity'
 
 describe('chat links', () => {
-  test('asks for help with the task, and for a comment that the agent is running', () => {
+  test('asks for help with the task, and for a comment with a link to the chat', () => {
     const prompt = createTaskPrompt({
       app: 'claude',
       line: '\t- [ ] Call the vendor 📅 2026-11-03',
@@ -14,9 +14,17 @@ describe('chat links', () => {
 
     expect(prompt.split('\n\n')).toEqual([
       'Help me with this task - [ ] Call the vendor 📅 2026-11-03 /Vault/Notes/Calls.md.',
-      "Before you start, add this comment to that task's line in the note: [comment_2026-11-03 14:30:: Claude agent is running]. " +
+      "Before you start, add this comment to that task's line in the note: [comment_2026-11-03 14:30:: Agent is running in claude://code/continue?session={id}], " +
+        'with {id} replaced by the value of the CLAUDE_CODE_HOST_SESSION_ID environment variable. If that variable is empty, write Claude in place of the link. ' +
         'A comment is [comment_YYYY-MM-DD HH:mm:: text] with the local date and time. It goes after the task text and its other comments, before its dates and fields, such as 📅 2026-11-05.',
     ])
+  })
+
+  test('asks ChatGPT for a link to its thread', () => {
+    const prompt = createTaskPrompt({ app: 'chatgpt', line: '- [ ] Call', notePath: '/Vault/Calls.md', time: '2026-11-03 14:30' })
+
+    expect(prompt).toContain('[comment_2026-11-03 14:30:: Agent is running in codex://threads/{id}]')
+    expect(prompt).toContain('the value of the CODEX_THREAD_ID environment variable')
   })
 
   test('opens a new ChatGPT chat in the folder with the prompt', () => {

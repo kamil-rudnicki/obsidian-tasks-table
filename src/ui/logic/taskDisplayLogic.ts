@@ -82,6 +82,43 @@ export const getDisplayValue = (value: string): string =>
 
 // A task put off for later is still open: its title is not struck through, and
 // a past due date still shows as overdue.
+// A run of comment text, or a link in it.
+export type CommentPart = { text: string; url?: string }
+
+// Only these open from a comment: web pages, Obsidian, and the chats of the
+// ChatGPT and Claude desktop apps. Other schemes stay text.
+const commentLinkSchemes = new Set(['http', 'https', 'obsidian', 'codex', 'claude'])
+// A link back to an agent's chat reads as the app: "Agent is running in ChatGPT".
+const chatLinkNames: Record<string, string> = { codex: 'ChatGPT', claude: 'Claude' }
+// Markdown links, [text](url), and bare addresses such as codex://threads/….
+const commentLinkPattern = /\[([^\]]*)\]\(([a-z][a-z0-9+.-]*:[^)\s]+)\)|([a-z][a-z0-9+.-]*:\/\/[^\s<>()[\]]+)/giu
+
+// Splits a comment into text and links. Punctuation that ends a sentence is
+// not part of a bare address.
+export const getCommentParts = (text: string): CommentPart[] => {
+  const parts: CommentPart[] = []
+  let cursor = 0
+
+  for (const match of text.matchAll(commentLinkPattern)) {
+    const [whole, label, markdownUrl, bareUrl] = match
+    const url = markdownUrl ?? bareUrl.replace(/[.,;:!?'"]+$/u, '')
+    const scheme = url.slice(0, url.indexOf(':')).toLowerCase()
+    if (!commentLinkSchemes.has(scheme)) {
+      continue
+    }
+    if (match.index > cursor) {
+      parts.push({ text: getDisplayValue(text.slice(cursor, match.index)) })
+    }
+    parts.push({ text: label ?? chatLinkNames[scheme] ?? url, url })
+    cursor = match.index + (markdownUrl ? whole.length : url.length)
+  }
+
+  if (cursor < text.length) {
+    parts.push({ text: getDisplayValue(text.slice(cursor)) })
+  }
+  return parts
+}
+
 export const isOpenTask = (task: Pick<Task, 'status'>): boolean =>
   task.status !== 'done' && task.status !== 'cancelled'
 

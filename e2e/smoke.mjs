@@ -245,18 +245,20 @@ try {
       ).map((link) => new URL(link))
       const basePath = await page.evaluate(() => window.app.vault.adapter.getBasePath())
       const request = `Help me with this task ${await lineWith('Projects/Website.md', 'Write landing page copy')} ${path.join(basePath, 'Projects/Website.md')}.`
-      // The prompt asks the agent to comment on the task that it is running.
-      const checkPrompt = (prompt, agent) => {
+      // The prompt asks the agent to comment on the task that it is running,
+      // with a link to its chat from the chat id in its environment.
+      const checkPrompt = (prompt, chatLink, idVariable) => {
         assert.ok(prompt.startsWith(`${request}\n\nBefore you start, add this comment`), prompt)
-        assert.match(prompt, new RegExp(`\\[comment_\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:: ${agent} agent is running\\]`, 'u'))
+        assert.match(prompt, /\[comment_\d{4}-\d{2}-\d{2} \d{2}:\d{2}:: Agent is running in /u)
+        assert.ok(prompt.includes(`${chatLink}], with {id} replaced by the value of the ${idVariable} environment variable`), prompt)
       }
       // Without a folder in the settings, the chat works in the vault folder.
       assert.equal(`${chatGpt.protocol}//${chatGpt.host}${chatGpt.pathname}`, 'codex://threads/new')
       assert.equal(chatGpt.searchParams.get('path'), basePath)
-      checkPrompt(chatGpt.searchParams.get('prompt'), 'ChatGPT')
+      checkPrompt(chatGpt.searchParams.get('prompt'), 'codex://threads/{id}', 'CODEX_THREAD_ID')
       assert.equal(`${claude.protocol}//${claude.host}${claude.pathname}`, 'claude://code/new')
       assert.equal(claude.searchParams.get('folder'), basePath)
-      checkPrompt(claude.searchParams.get('q'), 'Claude')
+      checkPrompt(claude.searchParams.get('q'), 'claude://code/continue?session={id}', 'CLAUDE_CODE_HOST_SESSION_ID')
     } finally {
       await page.evaluate(() => {
         window.open = window.realOpen
@@ -283,8 +285,14 @@ try {
     )
     assert.match(line, /^- \[ \] Renew the passport \[comment_\d{4}-\d{2}-\d{2} \d{2}:\d{2}:: Book the photo \[first\]\]$/u)
     await page.getByRole('list', { name: 'Comments' }).getByText('Book the photo [first]').waitFor()
+    // A link back to an agent's chat shows as the app, ready to open.
+    await page.getByRole('textbox', { name: 'Comment', exact: true }).fill('Agent is running in codex://threads/01a1a0f1-5cbe')
+    await page.keyboard.press('Enter')
+    const chatLink = page.getByRole('list', { name: 'Comments' }).getByRole('link', { name: 'ChatGPT' })
+    await chatLink.waitFor()
+    assert.equal(await chatLink.getAttribute('href'), 'codex://threads/01a1a0f1-5cbe')
     await page.keyboard.press('Escape')
-    await row.getByRole('button', { name: '1 comment' }).waitFor()
+    await row.getByRole('button', { name: '2 comments' }).waitFor()
     // The title editor shows the title without the comment, and a new title keeps it.
     await row.locator('td[data-col-id=description]').click()
     const editor = root.locator('[data-slot=data-grid-cell-editor]')
