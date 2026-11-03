@@ -1,5 +1,13 @@
-import { Notice, PluginSettingTab, type App, type Plugin, type SettingDefinitionItem } from 'obsidian'
-import { defaultSettings, settingNames, type SettingName } from '@shared/settingsTypes'
+import {
+  FileSystemAdapter,
+  Notice,
+  Platform,
+  PluginSettingTab,
+  type App,
+  type Plugin,
+  type SettingDefinitionItem,
+} from 'obsidian'
+import { defaultSettings, fullPathMessage, isFullPath, settingNames, type SettingName } from '@shared/settingsTypes'
 import { UserError } from '@shared/userError'
 import { describeSyncStatus } from '@/logic/syncStatusLogic'
 import type { PluginServices } from './pluginServices'
@@ -42,6 +50,8 @@ export class TasksTableSettingTab extends PluginSettingTab {
 
   getSettingDefinitions(): SettingDefinitionItem[] {
     const isNoteTarget = () => this.getControlValue('newTaskTarget') === 'note'
+    const { adapter } = this.app.vault
+    const vaultFolder = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : ''
 
     return [
       {
@@ -139,6 +149,24 @@ export class TasksTableSettingTab extends PluginSettingTab {
             desc: 'When you change a start date in the table, the task and its subtasks move to that day’s daily note, under the heading above. The note is created when it does not exist.',
             aliases: ['daily note', 'move'],
             control: { type: 'toggle', key: 'moveToStartDateNote' },
+          },
+        ],
+      },
+      {
+        type: 'group',
+        heading: 'ChatGPT and Claude',
+        items: [
+          {
+            name: 'Folder for new chats',
+            desc: '“Run ChatGPT Desktop” and “Run Claude Desktop” in a task’s menu open a new chat in this folder, with the task and its note in the message. Leave empty to use the vault folder.',
+            aliases: ['chatgpt', 'claude', 'codex', 'ai'],
+            visible: () => Platform.isDesktopApp,
+            control: {
+              type: 'text',
+              key: 'chatFolder',
+              placeholder: vaultFolder,
+              validate: (value) => (value.trim() === '' || isFullPath(value.trim()) ? undefined : fullPathMessage),
+            },
           },
         ],
       },

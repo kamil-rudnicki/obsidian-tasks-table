@@ -207,6 +207,8 @@ try {
         },
       })
     })
+    // Clear search in the step above closed the search field.
+    await root.getByRole('button', { name: 'Search' }).click()
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Sort the receipts')
     await root.locator('tbody tr', { hasText: 'Sort the receipts' }).getByRole('button', { name: 'Task actions' }).click()
     await page.getByRole('menuitem', { name: 'Cut task' }).click()
@@ -217,7 +219,55 @@ try {
     await page.getByRole('button', { name: 'Clear search' }).click()
   })
 
+  await step('opens a task in a new ChatGPT or Claude desktop chat', async () => {
+    // A stand-in for window.open, so the test opens no dialog and no app.
+    await page.evaluate(() => {
+      window.realOpen = window.open
+      window.openedLinks = []
+      window.open = (url) => {
+        window.openedLinks.push(url)
+        return null
+      }
+    })
+    try {
+      await root.getByRole('button', { name: 'Search' }).click()
+      await page.getByRole('textbox', { name: 'Search tasks' }).fill('Write landing page copy')
+      const actions = root.locator('tbody tr', { hasText: 'Write landing page copy' }).getByRole('button', { name: 'Task actions' })
+      await actions.click()
+      await page.getByRole('menuitem', { name: 'Run ChatGPT Desktop' }).click()
+      await actions.click()
+      await page.getByRole('menuitem', { name: 'Run Claude Desktop' }).click()
+      const [chatGpt, claude] = (
+        await waitFor(async () => {
+          const links = await page.evaluate(() => window.openedLinks)
+          return links.length === 2 ? links : null
+        }, 'The chat links were not opened.')
+      ).map((link) => new URL(link))
+      const basePath = await page.evaluate(() => window.app.vault.adapter.getBasePath())
+      const request = `Help me with this task ${await lineWith('Projects/Website.md', 'Write landing page copy')} ${path.join(basePath, 'Projects/Website.md')}.`
+      // The prompt asks the agent to comment on the task that it is running.
+      const checkPrompt = (prompt, agent) => {
+        assert.ok(prompt.startsWith(`${request}\n\nBefore you start, add this comment`), prompt)
+        assert.match(prompt, new RegExp(`\\[comment_\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:: ${agent} agent is running\\]`, 'u'))
+      }
+      // Without a folder in the settings, the chat works in the vault folder.
+      assert.equal(`${chatGpt.protocol}//${chatGpt.host}${chatGpt.pathname}`, 'codex://threads/new')
+      assert.equal(chatGpt.searchParams.get('path'), basePath)
+      checkPrompt(chatGpt.searchParams.get('prompt'), 'ChatGPT')
+      assert.equal(`${claude.protocol}//${claude.host}${claude.pathname}`, 'claude://code/new')
+      assert.equal(claude.searchParams.get('folder'), basePath)
+      checkPrompt(claude.searchParams.get('q'), 'Claude')
+    } finally {
+      await page.evaluate(() => {
+        window.open = window.realOpen
+        delete window.realOpen
+      })
+    }
+    await page.getByRole('button', { name: 'Clear search' }).click()
+  })
+
   await step('adds a comment and keeps it when the title changes', async () => {
+    await root.getByRole('button', { name: 'Search' }).click()
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Renew the passport')
     const row = root.locator('tbody tr', { hasText: 'Renew the passport' })
     await row.getByRole('button', { name: 'Add a comment' }).click()

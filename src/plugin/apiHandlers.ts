@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { openTargets, type ApiChannel, type ApiHandlers, type ApiInput } from '@shared/apiContract'
+import { chatApps, openTargets, type ApiChannel, type ApiHandlers, type ApiInput } from '@shared/apiContract'
 import { settingsPatchSchema } from '@shared/settingsTypes'
 import {
   addTaskCommentInputSchema,
@@ -26,6 +26,7 @@ const inputSchemas: { [Channel in ApiChannel]: z.ZodType<ApiInput<Channel>> } = 
   'tasks:fields': emptyInputSchema,
   'tasks:open': z.object({ id: idSchema, target: z.enum(openTargets) }),
   'tasks:openLink': z.object({ id: idSchema, link: z.string().min(1).max(2000), target: z.enum(openTargets) }),
+  'tasks:openChat': z.object({ id: idSchema, app: z.enum(chatApps) }),
   'views:list': emptyInputSchema,
   'views:create': createViewInputSchema,
   'views:update': updateViewInputSchema,

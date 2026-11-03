@@ -1,4 +1,13 @@
-import { Columns2Icon, EllipsisIcon, ExternalLinkIcon, ScissorsIcon, Trash2Icon } from 'lucide-react'
+import { Platform } from 'obsidian'
+import {
+  AsteriskIcon,
+  Columns2Icon,
+  EllipsisIcon,
+  ExternalLinkIcon,
+  ScissorsIcon,
+  SparklesIcon,
+  Trash2Icon,
+} from 'lucide-react'
 import type { Task } from '@shared/taskTypes'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { requestTaskDelete } from '@/logic/deleteTaskLogic'
-import { cutTask, openTask } from '@/logic/taskActions'
+import { cutTask, openTask, openTaskInChat } from '@/logic/taskActions'
 
 export const TaskActionsCell = ({ task }: { task: Task }) => (
   <div className='flex items-center justify-center'>
@@ -35,6 +44,19 @@ export const TaskActionsCell = ({ task }: { task: Task }) => (
           <Columns2Icon />
           Open note to the right
         </DropdownMenuItem>
+        {/* The ChatGPT and Claude desktop apps run on computers only. */}
+        {Platform.isDesktopApp ? (
+          <>
+            <DropdownMenuItem onClick={() => void openTaskInChat(task, 'chatgpt')}>
+              <SparklesIcon />
+              Run ChatGPT Desktop
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void openTaskInChat(task, 'claude')}>
+              <AsteriskIcon />
+              Run Claude Desktop
+            </DropdownMenuItem>
+          </>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => void cutTask(task)}>
           <ScissorsIcon />

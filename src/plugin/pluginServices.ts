@@ -1,6 +1,6 @@
-import { MarkdownView, normalizePath, TFile, type App, type Plugin } from 'obsidian'
+import { FileSystemAdapter, MarkdownView, normalizePath, TFile, type App, type Plugin } from 'obsidian'
 import type { ApiChannel, ApiHandlers, ApiInput, ApiOutput, OpenTarget } from '@shared/apiContract'
-import { getToday } from '@shared/dateLogic'
+import { getToday, toLocalDateTime } from '@shared/dateLogic'
 import type { Settings, SettingsPatch } from '@shared/settingsTypes'
 import type { AppEvent } from '@shared/syncTypes'
 import { UserError } from '@shared/userError'
@@ -14,6 +14,7 @@ import { createTaskWriter, type TaskWriter } from '../vault/taskWriter'
 import { readConfigJson } from '../vault/vaultConfig'
 import { VaultIndexer } from '../vault/vaultIndexer'
 import { runHandler } from './apiHandlers'
+import { createChatLink, createTaskPrompt } from './chatLinks'
 
 export type AppEventListener = (event: AppEvent) => void
 
@@ -159,6 +160,27 @@ export class PluginServices {
         }
         // Like a link in the note: relative paths and missing notes resolve as Obsidian does.
         await this.plugin.app.workspace.openLinkText(link, task.filePath, target)
+        return null
+      },
+      'tasks:openChat': ({ id, app }) => {
+        const task = this.index.getTask(id)
+        if (!task) {
+          throw new UserError('This task no longer exists.')
+        }
+        const { adapter } = this.plugin.app.vault
+        if (!(adapter instanceof FileSystemAdapter)) {
+          throw new UserError('Desktop chat apps open only from Obsidian on a computer.')
+        }
+        const folder = settings.getSettings().chatFolder || adapter.getBasePath()
+        const prompt = createTaskPrompt({
+          app,
+          line: task.raw,
+          notePath: adapter.getFullPath(task.filePath),
+          time: toLocalDateTime(new Date()),
+        })
+        // Obsidian asks before it opens `codex://` and `claude://` links, unless
+        // you let it always open them.
+        activeWindow.open(createChatLink(app, folder, prompt))
         return null
       },
       'views:list': () => views.listViews(),

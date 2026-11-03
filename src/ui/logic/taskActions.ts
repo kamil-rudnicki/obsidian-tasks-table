@@ -1,5 +1,5 @@
 import { getToday, toLocalDateTime } from '@shared/dateLogic'
-import type { OpenTarget } from '@shared/apiContract'
+import type { ChatApp, OpenTarget } from '@shared/apiContract'
 import type { Settings } from '@shared/settingsTypes'
 import type { CreateTaskInput, Task, TaskChanges, TaskLink } from '@shared/taskTypes'
 import { invoke } from '@/lib/api'
@@ -100,6 +100,15 @@ export const cutTask = async (task: Task): Promise<void> => {
 export const openTask = async (task: Task, target: OpenTarget = 'tab'): Promise<void> => {
   try {
     await invoke('tasks:open', { id: task.id, target })
+  } catch (error) {
+    notifyError(error)
+  }
+}
+
+// Opens a new chat in a desktop app with the task and its note in the message.
+export const openTaskInChat = async (task: Task, app: ChatApp): Promise<void> => {
+  try {
+    await invoke('tasks:openChat', { id: task.id, app })
   } catch (error) {
     notifyError(error)
   }

@@ -14,6 +14,10 @@ import type { CreateViewInput, UpdateViewInput, View } from '@shared/viewTypes'
 export const openTargets = ['tab', 'split'] as const
 export type OpenTarget = (typeof openTargets)[number]
 
+// The desktop apps that "Run ChatGPT Desktop" and "Run Claude Desktop" open.
+export const chatApps = ['chatgpt', 'claude'] as const
+export type ChatApp = (typeof chatApps)[number]
+
 // Every request from the React UI to the plugin. The plugin validates each input with zod.
 export type ApiContract = {
   'tasks:list': { input: TaskListQuery; output: Task[] }
@@ -29,6 +33,8 @@ export type ApiContract = {
   'tasks:open': { input: { id: string; target: OpenTarget }; output: null }
   // Opens a link to a note, resolved from the note that holds the task.
   'tasks:openLink': { input: { id: string; link: string; target: OpenTarget }; output: null }
+  // Opens a new chat in a desktop app that asks for help with the task.
+  'tasks:openChat': { input: { id: string; app: ChatApp }; output: null }
   'views:list': { input: null; output: View[] }
   'views:create': { input: CreateViewInput; output: View }
   'views:update': { input: UpdateViewInput; output: View }
