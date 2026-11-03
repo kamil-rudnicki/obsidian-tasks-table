@@ -1,8 +1,17 @@
 import { ItemView, Scope, type WorkspaceLeaf } from 'obsidian'
+import { undoLastChange } from '@/logic/taskActions'
 import { mountTasksApp } from '@/mountTasksApp'
 import type { PluginServices } from './pluginServices'
 
 export const tasksTableViewType = 'tasks-table'
+
+// Fields where Mod+Z undoes typing, such as the title editor and the search.
+const isTextField = (target: EventTarget | null): boolean =>
+  target !== null &&
+  'closest' in target &&
+  (target as Element).closest(
+    'input:not([type="checkbox"], [type="radio"], [type="button"]), textarea, select, [contenteditable]:not([contenteditable="false"])',
+  ) !== null
 
 // A full-page view with every task of the vault in one table.
 export class TasksTableView extends ItemView {
@@ -23,6 +32,15 @@ export class TasksTableView extends ItemView {
     // Mod+F searches the tasks; the table has no note to find text in.
     this.scope.register(['Mod'], 'f', () => {
       this.services.emit({ type: 'focus-search' })
+      return false
+    })
+    // Mod+Z undoes the table's last change to a task, once, from this view.
+    // In a text field it undoes typing, as everywhere.
+    this.scope.register(['Mod'], 'z', (event) => {
+      if (isTextField(event.target)) {
+        return true
+      }
+      void undoLastChange()
       return false
     })
   }

@@ -96,6 +96,18 @@ export const cutTask = async (task: Task): Promise<void> => {
   }
 }
 
+// Mod+Z: puts back the task line the table changed last, such as a status.
+export const undoLastChange = async (): Promise<void> => {
+  try {
+    const task = await invoke('tasks:undo', null)
+    notify(task ? `Undid the last change to “${getDisplayTitle(task.description)}”` : 'Nothing to undo')
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    void refreshTasks()
+  }
+}
+
 // A modifier key (Cmd on macOS, Ctrl elsewhere) opens the note in a split.
 export const openTask = async (task: Task, target: OpenTarget = 'tab'): Promise<void> => {
   try {

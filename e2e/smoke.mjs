@@ -113,7 +113,7 @@ try {
     )
   })
 
-  await step('puts a task off for later from the status menu', async () => {
+  await step('puts a task off for later, and undoes it with Mod+Z', async () => {
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Plan v2')
     const row = root.locator('tbody tr', { hasText: 'Plan v2' })
     await row.getByRole('button', { name: 'Status: To do' }).click()
@@ -122,12 +122,14 @@ try {
       async () => (await lineWith('Projects/Website.md', 'Plan v2'))?.startsWith('- [>] Plan v2'),
       'The task was not put off for later.',
     )
-    await row.getByRole('button', { name: 'Status: Later' }).click()
-    await page.getByRole('menuitemradio', { name: 'To do' }).click()
+    // Mod+Z, with the table in focus, puts the line back as it was.
+    await root.getByRole('grid').focus()
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+KeyZ' : 'Control+KeyZ')
     await waitFor(
       async () => (await lineWith('Projects/Website.md', 'Plan v2'))?.startsWith('- [ ] Plan v2'),
-      'The task did not go back to To do.',
+      'Mod+Z did not undo the status change.',
     )
+    await row.getByRole('button', { name: 'Status: To do' }).waitFor()
   })
 
   await step('adds and removes tags in the Tags cell', async () => {

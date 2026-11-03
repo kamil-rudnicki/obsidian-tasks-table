@@ -19,10 +19,28 @@ type TaskWriterOptions = {
 
 const taskChangedMessage = 'This task changed in the note. The list now shows the latest version.'
 
+// The table's own edits of task lines, newest last, so Mod+Z can put a line
+// back exactly as it was, with its dates. Edits that move or remove lines, or
+// add them, cannot be undone this way and clear the list.
+type LineEdit = { notePath: string; line: number; before: string; after: string }
+const maxUndoEdits = 50
+
 // Writes task edits back to the Markdown notes, then re-indexes the notes.
 export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWriterOptions) => {
   const { vault } = app
   const notes = createNoteFiles(app)
+  const undoEdits: LineEdit[] = []
+
+  const rememberEdit = (edit: LineEdit): void => {
+    if (edit.before !== edit.after) {
+      undoEdits.push(edit)
+      undoEdits.splice(0, undoEdits.length - maxUndoEdits)
+    }
+  }
+
+  const forgetEdits = (): void => {
+    undoEdits.length = 0
+  }
 
   const getChangeOptions = (): TaskChangeOptions => {
     const settings = getSettings()
@@ -44,19 +62,29 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
     return { task, file }
   }
 
-  // Runs `edit` on the task's current line and returns the line it ended on.
+  // Runs `edit` on the task's current line and returns the line it ended on,
+  // with its text before and after the edit.
   const editTaskLine = async (
     id: string,
     edit: (line: string) => string | null,
-  ): Promise<{ notePath: string; line: number }> => {
+  ): Promise<LineEdit> => {
     const { task, file } = findTask(id)
 
     // `process` reads and writes the note atomically, also while it is open in an editor.
-    const located: { line: number | null } = { line: null }
+    const located: { line: number | null; before: string; after: string | null } = {
+      line: null,
+      before: '',
+      after: null,
+    }
     const content = await vault.process(file, (data) => {
       const line = locateLine(data, task.line, task.raw)
       located.line = line
-      return line === null ? data : replaceLine(data, line, edit(splitLines(data)[line]))
+      if (line === null) {
+        return data
+      }
+      located.before = splitLines(data)[line]
+      located.after = edit(located.before)
+      return replaceLine(data, line, located.after)
     })
 
     await indexer.indexContent(file, content)
@@ -65,7 +93,7 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
       throw new UserError(taskChangedMessage)
     }
 
-    return { notePath: task.filePath, line: located.line }
+    return { notePath: task.filePath, line: located.line, before: located.before, after: located.after ?? '' }
   }
 
   // Reads the task's note and finds the task with its subtasks and notes.
@@ -120,6 +148,7 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
     const movedLines = [edit(block.lines[0]), ...block.lines.slice(1)]
     const inserted = await notes.insertIntoNote(target, movedLines, getSettings().newTaskHeading)
     const { removed, content: sourceAfter } = await removeTaskBlock(source, sourceContent, block)
+    forgetEdits()
 
     if (!removed) {
       const targetAfter = await vault.process(inserted.file, (data) =>
@@ -157,21 +186,24 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
         return moveTask(task, target, edit)
       }
 
-      const { notePath, line } = await editTaskLine(id, edit)
-      return getTaskAt(notePath, line)
+      const lineEdit = await editTaskLine(id, edit)
+      rememberEdit(lineEdit)
+      return getTaskAt(lineEdit.notePath, lineEdit.line)
     })
 
   // The comment gets the current local time. The task keeps its id.
   const addComment = ({ id, text }: AddTaskCommentInput): Promise<Task> =>
     indexer.runExclusive(async () => {
       const time = toLocalDateTime(new Date())
-      const { notePath, line } = await editTaskLine(id, (taskLine) => addTaskComment(taskLine, { time, text }))
-      return getTaskAt(notePath, line)
+      const lineEdit = await editTaskLine(id, (taskLine) => addTaskComment(taskLine, { time, text }))
+      rememberEdit(lineEdit)
+      return getTaskAt(lineEdit.notePath, lineEdit.line)
     })
 
   const deleteTask = (id: string): Promise<void> =>
     indexer.runExclusive(async () => {
       await editTaskLine(id, () => null)
+      forgetEdits()
     })
 
   // Copies the task, with its subtasks and notes, through `copy` and only then
@@ -183,6 +215,7 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
       await copy(block.lines.join('\n'))
       const { removed, content: after } = await removeTaskBlock(file, content, block)
       await indexer.indexContent(file, after)
+      forgetEdits()
 
       if (!removed) {
         throw new UserError('The note changed meanwhile. The task was copied, but it is still in its note.')
@@ -204,12 +237,39 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
         { ...getChangeOptions(), setCreatedDate: settings.setCreatedDate },
       )
       const inserted = await notes.insertIntoNote(target, [taskLine], settings.newTaskHeading)
+      forgetEdits()
 
       await indexer.indexContent(inserted.file, inserted.content)
       return getTaskAt(target.notePath, inserted.line)
     })
 
-  return { updateTask, addComment, deleteTask, cutTask, createTask }
+  // Puts the line of the newest edit back as it was. A line that changed in
+  // its note since is left as it is. Returns null when there is nothing to undo.
+  const undoLastEdit = (): Promise<Task | null> =>
+    indexer.runExclusive(async () => {
+      const edit = undoEdits.pop()
+      if (!edit) {
+        return null
+      }
+      const file = notes.getNote(edit.notePath)
+      const located: { line: number | null } = { line: null }
+      const content = file
+        ? await vault.process(file, (data) => {
+            located.line = locateLine(data, edit.line, edit.after)
+            return located.line === null ? data : replaceLine(data, located.line, edit.before)
+          })
+        : null
+
+      if (!file || content === null || located.line === null) {
+        forgetEdits()
+        throw new UserError('The task changed in its note since, so the last change cannot be undone.')
+      }
+
+      await indexer.indexContent(file, content)
+      return getTaskAt(edit.notePath, located.line)
+    })
+
+  return { updateTask, addComment, deleteTask, cutTask, createTask, undoLastEdit }
 }
 
 export type TaskWriter = ReturnType<typeof createTaskWriter>

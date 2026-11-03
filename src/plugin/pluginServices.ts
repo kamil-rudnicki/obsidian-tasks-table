@@ -147,6 +147,7 @@ export class PluginServices {
         await writer.cutTask(id, (text) => activeWindow.navigator.clipboard.writeText(text))
         return null
       },
+      'tasks:undo': () => writer.undoLastEdit(),
       'tasks:options': (input) => this.index.listOptions(input),
       'tasks:fields': () => this.index.listFields(),
       'tasks:open': async ({ id, target }) => {
