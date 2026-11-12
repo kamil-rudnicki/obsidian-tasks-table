@@ -1,5 +1,6 @@
 import { TFile, TFolder, type App, type CachedMetadata, type EventRef, type TAbstractFile } from 'obsidian'
 import type { SyncStatus } from '@shared/syncTypes'
+import { UserError } from '@shared/userError'
 import { parseNoteTasks } from './noteTasks'
 import type { NoteState, TaskIndex } from './taskIndex'
 
@@ -110,7 +111,10 @@ export class VaultIndexer {
   runExclusive<Result>(task: () => Promise<Result>): Promise<Result> {
     const result = this.queue.then(task, task)
     this.queue = result.catch((error: unknown) => {
-      console.error('Tasks table: indexing failed', error)
+      // Expected edit conflicts are shown by the UI, not indexing failures.
+      if (!(error instanceof UserError)) {
+        console.error('Tasks table: indexing failed', error)
+      }
     })
     return result
   }

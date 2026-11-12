@@ -1,4 +1,5 @@
-import type { TaskChanges, TaskComment, TaskStatus } from '@shared/taskTypes'
+import type { EditTaskCommentInput, TaskChanges, TaskComment, TaskStatus } from '@shared/taskTypes'
+import { UserError } from '@shared/userError'
 import { formatComment } from './taskComments'
 import {
   blockIdPattern,
@@ -198,6 +199,22 @@ export const addTaskComment = (line: string, comment: TaskComment): string => {
 
   const end = parsed.comments.at(-1)?.end ?? getDescriptionEnd(parsed)
   return serialize(parsed, parsed.statusSymbol, insertWord(parsed.body, end, formatComment(comment)))
+}
+
+// The position distinguishes comments written in the same minute. Checking
+// the original prevents an edit from overwriting a comment changed in the note.
+export const editTaskComment = (
+  line: string,
+  { index, original, text }: Omit<EditTaskCommentInput, 'id'>,
+): string => {
+  const parsed = parseTaskLine(line)
+  const comment = parsed?.comments[index]
+  if (!parsed || !comment || comment.time !== original.time || comment.text !== original.text) {
+    throw new UserError('This comment changed in the note. Reopen it to edit the latest version.')
+  }
+
+  const body = parsed.body.slice(0, comment.start) + formatComment({ time: comment.time, text }) + parsed.body.slice(comment.end)
+  return serialize(parsed, parsed.statusSymbol, body)
 }
 
 export type TaskChangeOptions = {

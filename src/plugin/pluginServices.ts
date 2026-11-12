@@ -138,6 +138,7 @@ export class PluginServices {
       'tasks:create': (input) => writer.createTask(input),
       'tasks:update': (input) => writer.updateTask(input),
       'tasks:comment': (input) => writer.addComment(input),
+      'tasks:editComment': (input) => writer.editComment(input),
       'tasks:delete': async ({ id }) => {
         await writer.deleteTask(id)
         return null

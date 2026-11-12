@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { addTaskComment, applyTaskChanges, createTaskLine } from './taskLine'
+import { addTaskComment, applyTaskChanges, createTaskLine, editTaskComment } from './taskLine'
 
 const emojiOptions = { format: 'emoji', today: '2026-10-31', setDoneDate: true } as const
 const dataviewOptions = { ...emojiOptions, format: 'dataview' } as const
@@ -165,6 +165,36 @@ describe('comments', () => {
     expect(addTaskComment('- [ ] Call [comment_2026-10-30 09:12:: Left a message] 📅 2026-11-03', comment)).toBe(
       '- [ ] Call [comment_2026-10-30 09:12:: Left a message] [comment_2026-11-01 14:30:: Called the vendor] 📅 2026-11-03',
     )
+  })
+
+  test('edits only the chosen comment when timestamps and text repeat', () => {
+    const line = '\t- [/] Call #work [comment_2026-11-01 14:30:: Called the vendor] [comment_2026-11-01 14:30:: Called the vendor] ⏫ 📅 2026-11-03 [owner:: Ann] ^abc'
+    expect(editTaskComment(line, { index: 1, original: comment, text: 'See [[Notes]] and [docs](https://example.com)' })).toBe(
+      '\t- [/] Call #work [comment_2026-11-01 14:30:: Called the vendor] [comment_2026-11-01 14:30:: See [[Notes]] and [docs](https://example.com)] ⏫ 📅 2026-11-03 [owner:: Ann] ^abc',
+    )
+  })
+
+  test('normalizes and escapes edited comments so they read back unchanged', () => {
+    const line = '- [ ] Call [comment_2026-11-01 14:30:: Called the vendor]'
+    const edited = editTaskComment(line, { index: 0, original: comment, text: 'Ask  about\nthe ] key' })
+    expect(edited).toBe('- [ ] Call [comment_2026-11-01 14:30:: Ask about the \\] key]')
+    expect(editTaskComment(edited, {
+      index: 0,
+      original: { ...comment, text: 'Ask about the ] key' },
+      text: 'Answered',
+    })).toBe('- [ ] Call [comment_2026-11-01 14:30:: Answered]')
+  })
+
+  test('refuses to overwrite a changed, removed or shifted comment', () => {
+    const edit = { index: 0, original: comment, text: 'New text' }
+    for (const line of [
+      '- [ ] Call',
+      '- [ ] Call [comment_2026-11-01 14:30:: Changed in the note]',
+      '- [ ] Call [comment_2026-11-02 14:30:: Called the vendor]',
+      '- [ ] Call [comment_2026-11-01 14:29:: Earlier] [comment_2026-11-01 14:30:: Called the vendor]',
+    ]) {
+      expect(() => editTaskComment(line, edit)).toThrow('This comment changed in the note')
+    }
   })
 
   test('writes the comment on one line and escapes brackets Dataview would end it at', () => {

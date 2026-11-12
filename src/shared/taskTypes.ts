@@ -256,6 +256,12 @@ export const addTaskCommentInputSchema = z.object({
 })
 export type AddTaskCommentInput = z.infer<typeof addTaskCommentInputSchema>
 
+export const editTaskCommentInputSchema = addTaskCommentInputSchema.extend({
+  index: z.number().int().nonnegative(),
+  original: z.object({ time: z.string(), text: z.string() }),
+})
+export type EditTaskCommentInput = z.infer<typeof editTaskCommentInputSchema>
+
 export const taskOptionFields = ['tags', 'note', 'folder'] as const
 export const taskOptionsInputSchema = z.object({
   field: z.union([z.enum(taskOptionFields), inlineFieldIdSchema]),

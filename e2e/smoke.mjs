@@ -270,7 +270,7 @@ try {
     await page.getByRole('button', { name: 'Clear search' }).click()
   })
 
-  await step('adds a comment and keeps it when the title changes', async () => {
+  await step('adds, edits, cancels and undoes comments, and keeps them when the title changes', async () => {
     await root.getByRole('button', { name: 'Search' }).click()
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Renew the passport')
     const row = root.locator('tbody tr', { hasText: 'Renew the passport' })
@@ -293,8 +293,57 @@ try {
     const chatLink = page.getByRole('list', { name: 'Comments' }).getByRole('link', { name: 'ChatGPT' })
     await chatLink.waitFor()
     assert.equal(await chatLink.getAttribute('href'), 'codex://threads/01a1a0f1-5cbe')
+
+    const comments = page.getByRole('list', { name: 'Comments' })
+    const items = comments.getByRole('listitem')
+    const editComment = page.getByRole('textbox', { name: 'Edit comment', exact: true })
+    const beforeEdit = await waitFor(async () => {
+      const current = await lineWith('Notes/Inbox.md', 'Renew the passport')
+      return current?.includes(':: Agent is running in codex://threads/01a1a0f1-5cbe]') ? current : null
+    }, 'The second comment was not saved.')
+    await items.first().hover()
+    await items.first().getByRole('button', { name: 'Edit comment', exact: true }).click()
+    assert.equal(await editComment.inputValue(), 'Book the photo [first]')
+    assert.ok(await editComment.evaluate((element) => element === document.activeElement))
+    await editComment.fill('Book the photo [tomorrow]')
+    await page.keyboard.press('Enter')
+    await waitFor(
+      async () => (await lineWith('Notes/Inbox.md', 'Renew the passport')) === beforeEdit.replace('Book the photo [first]', 'Book the photo [tomorrow]'),
+      'The edited comment did not preserve its timestamp and the other comment.',
+    )
+    await comments.getByText('Book the photo [tomorrow]').waitFor()
+    assert.equal(await chatLink.getAttribute('href'), 'codex://threads/01a1a0f1-5cbe')
+
+    // Escape cancels just the edit and leaves the popup and the saved text open.
+    await items.first().getByRole('button', { name: 'Edit comment', exact: true }).click()
+    await editComment.fill('Discard this edit')
     await page.keyboard.press('Escape')
+    await comments.getByText('Book the photo [tomorrow]').waitFor()
+    assert.equal(await editComment.count(), 0)
+    assert.equal(await lineWith('Notes/Inbox.md', 'Renew the passport'), beforeEdit.replace('Book the photo [first]', 'Book the photo [tomorrow]'))
+
+    // Editing a link exposes its full text, and Save writes it back as a link.
+    await items.last().hover()
+    await items.last().getByRole('button', { name: 'Edit comment', exact: true }).click()
+    assert.equal(await editComment.inputValue(), 'Agent is running in codex://threads/01a1a0f1-5cbe')
+    await editComment.fill('Agent finished in codex://threads/01a1a0f1-5cbe')
+    await page.getByRole('button', { name: 'Save comment', exact: true }).click()
+    await waitFor(
+      async () => (await lineWith('Notes/Inbox.md', 'Renew the passport'))?.includes(':: Agent finished in codex://threads/01a1a0f1-5cbe]'),
+      'The edited link comment was not saved.',
+    )
+    await chatLink.waitFor()
+    await row.getByRole('button', { name: '2 comments' }).click()
+    await page.locator('[data-slot=popover-content]').waitFor({ state: 'detached' })
     await row.getByRole('button', { name: '2 comments' }).waitFor()
+
+    // The table's Undo restores the comment before its edit, including its time.
+    await root.getByRole('grid').focus()
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+KeyZ' : 'Control+KeyZ')
+    await waitFor(
+      async () => (await lineWith('Notes/Inbox.md', 'Renew the passport')) === beforeEdit.replace('Book the photo [first]', 'Book the photo [tomorrow]'),
+      'Undo did not restore the edited comment.',
+    )
     // The title editor shows the title without the comment, and a new title keeps it.
     await row.locator('td[data-col-id=description]').click()
     const editor = root.locator('[data-slot=data-grid-cell-editor]')
@@ -303,7 +352,7 @@ try {
     await editor.fill('Renew the passport early')
     await page.keyboard.press('Enter')
     await waitFor(
-      async () => (await lineWith('Notes/Inbox.md', 'Renew the passport early'))?.includes(':: Book the photo [first]]'),
+      async () => (await lineWith('Notes/Inbox.md', 'Renew the passport early'))?.includes(':: Book the photo [tomorrow]]'),
       'The new title did not keep the comment.',
     )
     await page.getByRole('button', { name: 'Clear search' }).click()

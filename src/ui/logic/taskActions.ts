@@ -1,7 +1,7 @@
 import { getToday, toLocalDateTime } from '@shared/dateLogic'
 import type { ChatApp, OpenTarget } from '@shared/apiContract'
 import type { Settings } from '@shared/settingsTypes'
-import type { CreateTaskInput, Task, TaskChanges, TaskLink } from '@shared/taskTypes'
+import type { CreateTaskInput, EditTaskCommentInput, Task, TaskChanges, TaskLink } from '@shared/taskTypes'
 import { invoke } from '@/lib/api'
 import { notify, notifyError } from '@/lib/notify'
 import { queryKeys } from '@/lib/queries'
@@ -52,6 +52,29 @@ export const addComment = async (task: Task, text: string): Promise<boolean> => 
 
   try {
     await invoke('tasks:comment', { id: task.id, text: comment.text })
+    return true
+  } catch (error) {
+    undo()
+    notifyError(error)
+    return false
+  } finally {
+    void refreshTasks()
+  }
+}
+
+export const editComment = async ({ id, index, original, text }: EditTaskCommentInput): Promise<boolean> => {
+  const normalized = text.replace(/\s+/gu, ' ').trim()
+  const undo = await changeTaskLocally(id, (item) => ({
+    ...item,
+    comments: item.comments.map((comment, at) =>
+      at === index && comment.time === original.time && comment.text === original.text
+        ? { ...comment, text: normalized }
+        : comment,
+    ),
+  }))
+
+  try {
+    await invoke('tasks:editComment', { id, index, original, text: normalized })
     return true
   } catch (error) {
     undo()

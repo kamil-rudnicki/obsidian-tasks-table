@@ -1,13 +1,13 @@
 import type { App, TFile } from 'obsidian'
 import { getToday, parseIsoDate, toLocalDateTime } from '@shared/dateLogic'
 import type { Settings } from '@shared/settingsTypes'
-import type { AddTaskCommentInput, CreateTaskInput, Task, TaskChanges, UpdateTaskInput } from '@shared/taskTypes'
+import type { AddTaskCommentInput, CreateTaskInput, EditTaskCommentInput, Task, TaskChanges, UpdateTaskInput } from '@shared/taskTypes'
 import { UserError } from '@shared/userError'
 import { getTaskBlock, locateLine, removeLines, replaceLine, type TaskBlock } from './noteEdits'
 import { createNoteFiles, normalizeNotePath, type TargetNote } from './noteFiles'
 import { splitLines, type IndexedTask } from './noteTasks'
 import { toPublicTask, type TaskIndex } from './taskIndex'
-import { addTaskComment, applyTaskChanges, createTaskLine, type TaskChangeOptions } from './taskLine'
+import { addTaskComment, applyTaskChanges, createTaskLine, editTaskComment, type TaskChangeOptions } from './taskLine'
 import type { VaultIndexer } from './vaultIndexer'
 
 type TaskWriterOptions = {
@@ -200,6 +200,13 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
       return getTaskAt(lineEdit.notePath, lineEdit.line)
     })
 
+  const editComment = ({ id, ...changes }: EditTaskCommentInput): Promise<Task> =>
+    indexer.runExclusive(async () => {
+      const lineEdit = await editTaskLine(id, (taskLine) => editTaskComment(taskLine, changes))
+      rememberEdit(lineEdit)
+      return getTaskAt(lineEdit.notePath, lineEdit.line)
+    })
+
   const deleteTask = (id: string): Promise<void> =>
     indexer.runExclusive(async () => {
       await editTaskLine(id, () => null)
@@ -269,7 +276,7 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
       return getTaskAt(edit.notePath, located.line)
     })
 
-  return { updateTask, addComment, deleteTask, cutTask, createTask, undoLastEdit }
+  return { updateTask, addComment, editComment, deleteTask, cutTask, createTask, undoLastEdit }
 }
 
 export type TaskWriter = ReturnType<typeof createTaskWriter>

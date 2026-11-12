@@ -4,6 +4,7 @@ import { settingsPatchSchema } from '@shared/settingsTypes'
 import {
   addTaskCommentInputSchema,
   createTaskInputSchema,
+  editTaskCommentInputSchema,
   taskListQuerySchema,
   taskOptionsInputSchema,
   updateTaskInputSchema,
@@ -20,6 +21,7 @@ const inputSchemas: { [Channel in ApiChannel]: z.ZodType<ApiInput<Channel>> } = 
   'tasks:create': createTaskInputSchema,
   'tasks:update': updateTaskInputSchema,
   'tasks:comment': addTaskCommentInputSchema,
+  'tasks:editComment': editTaskCommentInputSchema,
   'tasks:delete': idInputSchema,
   'tasks:cut': idInputSchema,
   'tasks:undo': emptyInputSchema,
