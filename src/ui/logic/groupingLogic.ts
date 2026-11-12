@@ -53,7 +53,8 @@ export const getGroupKey = (task: Task, field: TaskGroupField): string => {
   }
 }
 
-// Groups follow the order sorting uses; groups without a value go last.
+// Groups follow the order sorting uses, except Normal comes first for priority.
+// Groups without a value go last.
 const getOrderValue = (task: Task, field: TaskGroupField, key: string): string | number | null => {
   if (key === '') {
     return null
@@ -90,6 +91,9 @@ export const groupTasks = (tasks: Task[], { field, desc }: TaskGrouping): TaskGr
 
   return [...groups.values()]
     .sort((first, second) => {
+      if (field === 'priority' && (first.key === 'normal' || second.key === 'normal')) {
+        return first.key === second.key ? 0 : first.key === 'normal' ? -1 : 1
+      }
       if (first.order === null || second.order === null) {
         return first.order === second.order ? 0 : first.order === null ? 1 : -1
       }

@@ -9,7 +9,7 @@ import { updateViewConfig } from '@/logic/viewActions'
 import { ToolbarLabel } from './ToolbarLabel'
 import { toolbarButtonClassName } from './toolbarButtonClassName'
 
-// Urgent tasks come first when grouping by priority.
+// After Normal, priority groups go from most to least urgent by default.
 const createGrouping = (field: TaskGroupField): TaskGrouping => ({ field, desc: field === 'priority' })
 
 type GroupLevelProps = {

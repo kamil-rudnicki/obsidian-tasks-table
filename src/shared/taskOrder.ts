@@ -1,7 +1,6 @@
 import type { TaskPriority, TaskStatus } from './taskTypes'
 
-// The order of tasks and groups. Sorting and grouping use the same ranks, so a
-// sort and a group by the same property list values in the same order.
+// Sorting and grouping share these ranks. Priority groups put Normal first.
 
 export const statusRanks: Record<TaskStatus, number> = {
   in_progress: 0,

@@ -522,8 +522,8 @@ try {
     await page.getByRole('button', { name: 'Add subgroup' }).click()
     await page.keyboard.press('Escape')
     await waitFor(
-      async () => (await groupHeaders.nth(2).textContent())?.startsWith('PriorityHigh'),
-      'The groups were not grouped by priority.',
+      async () => (await groupHeaders.nth(2).textContent())?.startsWith('PriorityNormal'),
+      'The priority subgroups did not put Normal first.',
     )
     assert.match(await groupHeaders.nth(1).textContent(), /^StatusTo do\d+$/u)
     await waitFor(
