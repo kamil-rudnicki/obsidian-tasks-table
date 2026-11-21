@@ -676,8 +676,39 @@ try {
       async () => (await lineWith('Projects/Fields.md', 'Fix bike'))?.includes('[type:: garage]'),
       'Mod+Z did not bring the field back.',
     )
-    // The next step filters on the value the vault started with.
-    await row.locator('td[data-col-id="field:type"]').click()
+    // A link in a value is ready to open, and a link back to an agent's chat shows as the app.
+    const typeCell = row.locator('td[data-col-id="field:type"]')
+    await typeCell.click()
+    await editor.fill('codex://threads/01a1a0f1-5cbe')
+    await page.keyboard.press('Enter')
+    const fieldLink = typeCell.getByRole('link', { name: 'ChatGPT' })
+    await fieldLink.waitFor()
+    assert.equal(await fieldLink.getAttribute('href'), 'codex://threads/01a1a0f1-5cbe')
+    // A click on the link is the link's own and opens no editor. The click is
+    // stopped from opening the address, so the test opens no dialog and no app.
+    await page.evaluate(() => {
+      window.clickedLinks = []
+      window.keepLinkClosed = (event) => {
+        const link = event.target.closest('a[href]')
+        if (link) {
+          window.clickedLinks.push(link.getAttribute('href'))
+          event.preventDefault()
+        }
+      }
+      window.addEventListener('click', window.keepLinkClosed, true)
+    })
+    try {
+      await fieldLink.click()
+      assert.deepEqual(await page.evaluate(() => window.clickedLinks), ['codex://threads/01a1a0f1-5cbe'])
+      assert.equal(await editor.count(), 0, 'A click on the link opened the cell editor.')
+    } finally {
+      await page.evaluate(() => window.removeEventListener('click', window.keepLinkClosed, true))
+    }
+    // A click beside the link edits the value. The next step filters on the
+    // value the vault started with.
+    const { width, height } = await typeCell.boundingBox()
+    await typeCell.click({ position: { x: width - 12, y: height / 2 } })
+    assert.equal(await editor.inputValue(), 'codex://threads/01a1a0f1-5cbe')
     await editor.fill('home')
     await page.keyboard.press('Enter')
     await waitFor(

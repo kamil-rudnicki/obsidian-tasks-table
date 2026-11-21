@@ -32,7 +32,8 @@ const LinkItem = ({ task, link }: { task: Task; link: TaskLink }) => (
 
 // Every link in the task: notes open in Obsidian, web addresses in the browser.
 export const TaskLinksCell = ({ task }: { task: Task }) => (
-  <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
+  // The padding leaves room for a link's focus ring, which the clipping would cut.
+  <div className='-m-0.5 flex min-w-0 items-center gap-2 overflow-hidden p-0.5'>
     {task.links.map((link) => (
       <LinkItem key={link.target} task={task} link={link} />
     ))}

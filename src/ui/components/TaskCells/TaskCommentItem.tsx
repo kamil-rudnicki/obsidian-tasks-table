@@ -1,30 +1,12 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type SubmitEvent } from 'react'
-import { ArrowUpRightIcon, PencilIcon } from 'lucide-react'
+import { PencilIcon } from 'lucide-react'
 import type { Task, TaskComment } from '@shared/taskTypes'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { editComment } from '@/logic/taskActions'
-import { formatCommentTime, getCommentParts } from '@/logic/taskDisplayLogic'
-
-const commentLinkClassName =
-  'rounded-sm text-link underline decoration-link/40 underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [@media(hover:hover)]:hover:text-link-hover [@media(hover:hover)]:hover:decoration-link-hover'
-
-// Links stay ready to open while the comment is not being edited.
-const CommentText = ({ text }: { text: string }) => (
-  <p className='wrap-break-word select-text'>
-    {getCommentParts(text).map((part, index) =>
-      part.url ? (
-        <a key={index} href={part.url} target='_blank' rel='noopener noreferrer' className={commentLinkClassName}>
-          {part.text}
-          <ArrowUpRightIcon aria-hidden='true' className='ms-0.5 inline-block size-3 align-[-1px]' />
-        </a>
-      ) : (
-        <span key={index}>{part.text}</span>
-      ),
-    )}
-  </p>
-)
+import { formatCommentTime } from '@/logic/taskDisplayLogic'
+import { LinkedText } from './LinkedText'
 
 type CommentEditorProps = {
   taskId: string
@@ -155,7 +137,10 @@ export const TaskCommentItem = ({ taskId, comment, index, today }: TaskCommentIt
       {editing ? (
         <CommentEditor taskId={taskId} index={index} original={editing} onFinish={() => setEditing(null)} />
       ) : (
-        <CommentText text={comment.text} />
+        // Links stay ready to open while the comment is not being edited.
+        <p className='wrap-break-word select-text'>
+          <LinkedText text={comment.text} />
+        </p>
       )}
     </li>
   )
