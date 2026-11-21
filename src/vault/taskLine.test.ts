@@ -152,6 +152,50 @@ describe('tags', () => {
   })
 })
 
+describe('inline fields', () => {
+  const setField = (line: string, key: string, value: string): string =>
+    applyTaskChanges(line, { fields: { [key]: value } }, emojiOptions)
+
+  test('changes a value where it is written, with the name as written', () => {
+    expect(setField('- [ ] Call [Type:: work] now 📅 2026-11-03', 'type', 'home')).toBe(
+      '- [ ] Call [Type:: home] now 📅 2026-11-03',
+    )
+    expect(setField('- [ ] Read [source:: A]', 'source', '[[Meeting notes|Notes]]')).toBe(
+      '- [ ] Read [source:: [[Meeting notes|Notes]]]',
+    )
+  })
+
+  test('adds a new field after the text, before the metadata', () => {
+    expect(setField('- [ ] Call #work ⏫ 📅 2026-11-03 ^abc', 'summary', 'Left a message')).toBe(
+      '- [ ] Call #work [summary:: Left a message] ⏫ 📅 2026-11-03 ^abc',
+    )
+    expect(setField('- [ ] Call [type:: work] [size:: S] 📅 2026-11-03', 'summary', 'Later')).toBe(
+      '- [ ] Call [type:: work] [size:: S] [summary:: Later] 📅 2026-11-03',
+    )
+    expect(setField('- [ ] Field [type:: work] in the middle', 'size', 'S')).toBe(
+      '- [ ] Field [type:: work] in the middle [size:: S]',
+    )
+  })
+
+  test('removes a field when the value is empty', () => {
+    expect(setField('- [ ] Call [type:: work] now', 'type', '')).toBe('- [ ] Call now')
+    expect(setField('- [ ] Call', 'type', '')).toBe('- [ ] Call')
+  })
+
+  test('keeps a task whose only text is the field', () => {
+    expect(setField('- [ ] [type:: work]', 'type', '')).toBe('- [ ] [type:: ]')
+  })
+
+  test('writes one value for a field that is repeated', () => {
+    expect(setField('- [ ] Plan [area:: home] [area:: garden]', 'area', 'yard')).toBe('- [ ] Plan [area:: yard]')
+  })
+
+  test('refuses a value that would not read back', () => {
+    expect(() => setField('- [ ] Call', 'type', 'a ] b')).toThrow('Square brackets work only in wiki links')
+    expect(() => setField('- [ ] Call', 'type', '[docs](https://example.com)')).toThrow('Square brackets')
+  })
+})
+
 describe('comments', () => {
   const comment = { time: '2026-11-01 14:30', text: 'Called the vendor' }
 

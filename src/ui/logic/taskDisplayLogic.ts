@@ -133,6 +133,13 @@ export const applyChangesLocally = (
 ): Task => {
   const next: Task = { ...task, ...changes }
 
+  // `changes` holds only the fields that change. An empty value removes a field.
+  if (changes.fields) {
+    next.fields = Object.fromEntries(
+      Object.entries({ ...task.fields, ...changes.fields }).filter(([, value]) => value !== ''),
+    )
+  }
+
   if (changes.status !== undefined && changes.status !== task.status) {
     next.doneDate = changes.status === 'done'
       ? (task.doneDate ?? (options.setDoneDate ? options.today : null))

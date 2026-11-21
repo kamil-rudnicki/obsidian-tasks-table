@@ -24,6 +24,16 @@ type TaskMetadataToken = {
   bracket: '[' | '('
 }
 
+// Where a visible inline field, `[key:: value]`, is written in the line's body.
+export type InlineFieldRange = {
+  start: number
+  end: number
+  // The name as written, and in the lowercase form that names its column.
+  rawKey: string
+  key: string
+  value: string
+}
+
 export type ParsedTaskLine = {
   prefix: string
   statusSymbol: string
@@ -33,12 +43,15 @@ export type ParsedTaskLine = {
   // Index in `body` where a trailing block reference such as ` ^abc123` starts.
   blockIdStart: number | null
   description: string
+  // The description without its inline fields. A task keeps its id when a field changes.
+  identity: string
   status: TaskStatus
   priority: TaskPriority
   dates: Record<TaskDateField, string | null>
   tags: string[]
   // Visible Dataview inline fields (`[key:: value]`) other than the ones above, by lowercase key.
   fields: Record<string, string>
+  inlineFields: InlineFieldRange[]
   links: TaskLink[]
   // Comments are not part of the description, its tags or its links.
   comments: TaskCommentRange[]
@@ -263,14 +276,14 @@ export const extractTags = (description: string): string[] => [
 ]
 
 // Dataview reads `Type` and `type` as one field.
-const normalizeFieldKey = (key: string): string => key.trim().replace(/\s+/gu, ' ').toLocaleLowerCase()
+export const normalizeFieldKey = (key: string): string => key.trim().replace(/\s+/gu, ' ').toLocaleLowerCase()
 
-const extractInlineFields = (
+const findInlineFields = (
   body: string,
   protectedRanges: Array<[number, number]>,
   commentRanges: Array<[number, number]>,
-): Record<string, string> => {
-  const fields: Record<string, string> = {}
+): InlineFieldRange[] => {
+  const inlineFields: InlineFieldRange[] = []
 
   for (const match of body.matchAll(inlineFieldPattern)) {
     const start = match.index
@@ -285,8 +298,23 @@ const extractInlineFields = (
       continue
     }
 
-    const value = (match.groups?.value ?? '').trim()
-    // A repeated key keeps every value, as Dataview lists them.
+    inlineFields.push({
+      start,
+      end,
+      rawKey: (match.groups?.key ?? '').trim(),
+      key,
+      value: (match.groups?.value ?? '').trim(),
+    })
+  }
+
+  return inlineFields
+}
+
+// A repeated key keeps every value, as Dataview lists them.
+const getFieldValues = (inlineFields: InlineFieldRange[]): Record<string, string> => {
+  const fields: Record<string, string> = {}
+
+  for (const { key, value } of inlineFields) {
     fields[key] = key in fields ? `${fields[key]}, ${value}` : value
   }
 
@@ -307,11 +335,13 @@ export const parseTaskLine = (line: string): ParsedTaskLine | null => {
   const protectedRanges = getProtectedRanges(searchableBody)
   const comments = findComments(searchableBody, protectedRanges)
   const commentRanges = comments.map((comment): [number, number] => [comment.start, comment.end])
-  // Metadata written inside a comment, such as "moved to 📅 2026-11-05", is text.
+  const inlineFields = findInlineFields(searchableBody, protectedRanges, commentRanges)
+  const fieldRanges = inlineFields.map((field): [number, number] => [field.start, field.end])
+  // Metadata written inside a comment or a field, such as "moved to 📅 2026-11-05", is text.
   const tokens = [...searchableBody.matchAll(metadataPattern)]
     .filter((tokenMatch) =>
       !isInsideRanges(
-        [...protectedRanges, ...commentRanges],
+        [...protectedRanges, ...commentRanges, ...fieldRanges],
         tokenMatch.index,
         tokenMatch.index + tokenMatch[0].length,
       ),
@@ -337,11 +367,9 @@ export const parseTaskLine = (line: string): ParsedTaskLine | null => {
     }
   }
 
-  const description = getDescription(
-    body,
-    [...tokens, ...comments].sort((first, second) => first.start - second.start),
-    blockIdStart,
-  )
+  const inOrder = <Range extends { start: number }>(ranges: Range[]): Range[] =>
+    ranges.sort((first, second) => first.start - second.start)
+  const description = getDescription(body, inOrder([...tokens, ...comments]), blockIdStart)
 
   return {
     prefix,
@@ -351,11 +379,13 @@ export const parseTaskLine = (line: string): ParsedTaskLine | null => {
     tokens,
     blockIdStart,
     description,
+    identity: getDescription(body, inOrder([...tokens, ...comments, ...inlineFields]), blockIdStart),
     status: statusForSymbol[statusSymbol] ?? 'todo',
     priority,
     dates,
     tags: extractTags(description),
-    fields: extractInlineFields(searchableBody, protectedRanges, commentRanges),
+    fields: getFieldValues(inlineFields),
+    inlineFields,
     links: extractLinks(description),
     comments,
   }

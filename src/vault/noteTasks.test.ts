@@ -52,9 +52,9 @@ describe('parseNoteTasks', () => {
     ])
   })
 
-  test('keeps the id when the status or metadata changes', () => {
+  test('keeps the id when the status, metadata or a field changes', () => {
     const [before] = parseNoteTasks('note.md', '- [ ] Call')
-    const [after] = parseNoteTasks('note.md', '- [x] Call ⏫ ✅ 2026-10-31')
+    const [after] = parseNoteTasks('note.md', '- [x] Call [type:: work] ⏫ ✅ 2026-10-31')
 
     expect(after.id).toBe(before.id)
   })

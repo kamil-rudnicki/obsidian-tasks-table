@@ -162,6 +162,14 @@ describe('inline fields', () => {
     expect(parseTaskLine(line)?.fields).toEqual(fields)
   })
 
+  test('reads metadata inside a field as text', () => {
+    expect(parseTaskLine('- [ ] Plan [note:: moved to 📅 2026-11-05]')).toMatchObject({
+      description: 'Plan [note:: moved to 📅 2026-11-05]',
+      fields: { note: 'moved to 📅 2026-11-05' },
+      dates: { dueDate: null },
+    })
+  })
+
   test('keeps fields in the description, so edits to the text keep them', () => {
     expect(parseTaskLine('- [ ] Email admin [type:: work] 📅 2026-11-01')?.description).toBe(
       'Email admin [type:: work]',

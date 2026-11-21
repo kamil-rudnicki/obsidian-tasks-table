@@ -25,6 +25,7 @@ import {
   type Updater,
 } from '@tanstack/react-table'
 import {
+  getInlineFieldKey,
   taskSortFieldSchema,
   toInlineFieldId,
   type Task,
@@ -232,7 +233,16 @@ const createFieldColumn = (key: string): ColumnDef<DataGridFeatures, Task> => ({
   header: header(key, BracketsIcon),
   cell: ({ row }) => <TaskFieldCell value={row.original.fields[key]} />,
   size: 140,
-  meta: { headerTitle: key },
+  meta: {
+    headerTitle: key,
+    cellEdit: {
+      control: 'text',
+      // An empty value, also from Delete, removes the field from the task.
+      parse: (raw) => raw.trim(),
+      format: (value) => (typeof value === 'string' ? value : ''),
+      clearValue: '',
+    },
+  },
 })
 
 // The hidden column the rows are grouped by; each group's header renders in its place.
@@ -275,13 +285,15 @@ const toTaskSorting = (sorting: SortingState): TaskSort[] =>
   })
 
 const handleCellsChange = ({ changes }: DataGridCellsChangeDetails<Task>): void => {
-  for (const change of changes) {
-    if (
-      change.columnId === 'description' &&
-      typeof change.value === 'string' &&
-      change.value !== change.row.description
-    ) {
-      void updateTask(change.row, { description: change.value })
+  for (const { columnId, row, value } of changes) {
+    if (typeof value !== 'string') {
+      continue
+    }
+    const fieldKey = getInlineFieldKey(columnId)
+    if (columnId === 'description' && value !== row.description) {
+      void updateTask(row, { description: value })
+    } else if (fieldKey !== null && value !== (row.fields[fieldKey] ?? '')) {
+      void updateTask(row, { fields: { [fieldKey]: value } })
     }
   }
 }

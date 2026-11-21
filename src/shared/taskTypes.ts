@@ -228,6 +228,8 @@ export const taskChangesSchema = z
     description: taskDescriptionSchema,
     // Every tag the task should have. Tags that are not listed are removed.
     tags: z.array(tagSchema).max(100),
+    // Inline fields to set, by name. An empty value removes the field.
+    fields: z.record(z.string().min(1).max(100), z.string().trim().max(2000)),
     status: taskStatusSchema,
     priority: taskPrioritySchema,
     dueDate: isoDateSchema.nullable(),

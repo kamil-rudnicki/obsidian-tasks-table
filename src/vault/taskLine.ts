@@ -7,6 +7,7 @@ import {
   findTagRanges,
   formatToken,
   getDescriptionEnd,
+  normalizeFieldKey,
   parseTaskLine,
   symbolForStatus,
   type ParsedTaskLine,
@@ -187,6 +188,52 @@ const setTags = (line: string, tags: string[]): string => {
   return orderTags(withAdded, tags)
 }
 
+// Sets an inline field where it is written, and removes other fields with its
+// name, as a task holds one value per field here. A new field goes after the
+// task's text and the fields that follow it, before its metadata. An empty
+// value removes the field.
+const setInlineField = (line: string, key: string, value: string): string => {
+  const parsed = parseTaskLine(line)
+
+  if (!parsed) {
+    return line
+  }
+
+  const wantedKey = normalizeFieldKey(key)
+  const [first, ...others] = parsed.inlineFields.filter((field) => field.key === wantedKey)
+  let body = parsed.body
+  // Walk from the end so earlier field positions stay valid.
+  for (const field of others.reverse()) {
+    body = removeRange(body, field.start, field.end)
+  }
+
+  const write = (fieldValue: string): string => {
+    const text = `[${first?.rawKey ?? key}:: ${fieldValue}]`
+    if (first) {
+      return serialize(parsed, parsed.statusSymbol, body.slice(0, first.start) + text + body.slice(first.end))
+    }
+    const textEnd = getDescriptionEnd(parsed)
+    const lastField = parsed.inlineFields.at(-1)
+    const end = lastField && lastField.start >= textEnd ? lastField.end : textEnd
+    return serialize(parsed, parsed.statusSymbol, insertWord(body, end, text))
+  }
+
+  if (value === '') {
+    if (!first) {
+      return serialize(parsed, parsed.statusSymbol, body)
+    }
+    const removed = serialize(parsed, parsed.statusSymbol, removeRange(body, first.start, first.end))
+    // A task with no other text stays a task, with the field empty.
+    return parseTaskLine(removed)?.description === '' ? write('') : removed
+  }
+
+  const next = write(value)
+  if (parseTaskLine(next)?.fields[wantedKey] !== value) {
+    throw new UserError(`“${value}” cannot be saved in a field. Square brackets work only in wiki links, such as [[Note]].`)
+  }
+  return next
+}
+
 // A new comment goes after the task's last comment, or after its text when it
 // has none. Either way the Tasks metadata stays at the end of the line, where
 // the Tasks plugin reads it.
@@ -242,6 +289,10 @@ export const applyTaskChanges = (
 
   if (changes.tags !== undefined) {
     next = setTags(next, changes.tags)
+  }
+
+  for (const [key, value] of Object.entries(changes.fields ?? {})) {
+    next = setInlineField(next, key, value)
   }
 
   if (changes.status !== undefined && changes.status !== original.status) {

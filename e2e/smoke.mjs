@@ -585,6 +585,42 @@ try {
     await row.getByText('home', { exact: true }).waitFor()
     // Links in values read as in the note.
     await row.getByText('Ann', { exact: true }).waitFor()
+    // A value is edited in its cell, in place in the note.
+    const editor = root.locator('[data-slot=data-grid-cell-editor]')
+    await row.locator('td[data-col-id="field:type"]').click()
+    assert.equal(await editor.inputValue(), 'home')
+    await editor.fill('garage')
+    await page.keyboard.press('Enter')
+    await waitFor(
+      async () => (await lineWith('Projects/Fields.md', 'Fix bike')) === '- [ ] Fix bike [type:: garage] [estimate:: 1] [person:: [[People/Ann Smith|Ann]]]',
+      'The new field value was not written.',
+    )
+    // The cell of a link holds the link while it is edited.
+    await row.locator('td[data-col-id="field:person"]').click()
+    assert.equal(await editor.inputValue(), '[[People/Ann Smith|Ann]]')
+    await page.keyboard.press('Escape')
+    // An empty value removes the field; Mod+Z puts the line back.
+    await row.locator('td[data-col-id="field:type"]').click()
+    await editor.fill('')
+    await page.keyboard.press('Enter')
+    await waitFor(
+      async () => (await lineWith('Projects/Fields.md', 'Fix bike')) === '- [ ] Fix bike [estimate:: 1] [person:: [[People/Ann Smith|Ann]]]',
+      'Clearing the cell did not remove the field.',
+    )
+    await root.getByRole('grid').focus()
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+KeyZ' : 'Control+KeyZ')
+    await waitFor(
+      async () => (await lineWith('Projects/Fields.md', 'Fix bike'))?.includes('[type:: garage]'),
+      'Mod+Z did not bring the field back.',
+    )
+    // The next step filters on the value the vault started with.
+    await row.locator('td[data-col-id="field:type"]').click()
+    await editor.fill('home')
+    await page.keyboard.press('Enter')
+    await waitFor(
+      async () => (await lineWith('Projects/Fields.md', 'Fix bike'))?.includes('[type:: home]'),
+      'The field did not go back to its value.',
+    )
     await page.getByRole('button', { name: 'Clear search' }).click()
 
     await addFilter('type', 'work')

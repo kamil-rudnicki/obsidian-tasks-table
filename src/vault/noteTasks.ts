@@ -18,14 +18,15 @@ export const getNoteFolder = (filePath: string): string => {
   return separator === -1 ? '' : filePath.slice(0, separator)
 }
 
-// Status and metadata edits keep the id; only a new description or a move to
-// another note changes it. Equal tasks in one note differ by occurrence.
+// Edits of the status, metadata and inline fields keep the id, so a row stays
+// in place while you edit its cells; only new task text or a move to another
+// note changes it. Equal tasks in one note differ by occurrence.
 export const createTaskId = (
   filePath: string,
-  description: string,
+  identity: string,
   occurrence: number,
 ): string =>
-  hashString(`${filePath}\u0000${description}\u0000${occurrence}`)
+  hashString(`${filePath}\u0000${identity}\u0000${occurrence}`)
 
 const fencePattern = /^[ \t>]*(`{3,}|~{3,})/u
 
@@ -74,11 +75,11 @@ export const parseNoteTasks = (
       continue
     }
 
-    const occurrence = occurrences.get(parsed.description) ?? 0
-    occurrences.set(parsed.description, occurrence + 1)
+    const occurrence = occurrences.get(parsed.identity) ?? 0
+    occurrences.set(parsed.identity, occurrence + 1)
 
     tasks.push({
-      id: createTaskId(filePath, parsed.description, occurrence),
+      id: createTaskId(filePath, parsed.identity, occurrence),
       filePath,
       note,
       folder,

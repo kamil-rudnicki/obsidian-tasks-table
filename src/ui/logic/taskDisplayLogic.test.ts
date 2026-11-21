@@ -24,6 +24,20 @@ describe('getDisplayTitle', () => {
   })
 })
 
+describe('applyChangesLocally', () => {
+  test('changes only the given fields, and removes one with an empty value', () => {
+    const before = { fields: { type: 'work', area: 'home' } } as unknown as Task
+    const options = { today: '2026-10-31', setDoneDate: true }
+
+    expect(applyChangesLocally(before, { fields: { type: 'play', size: 'S' } }, options).fields).toEqual({
+      type: 'play',
+      area: 'home',
+      size: 'S',
+    })
+    expect(applyChangesLocally(before, { fields: { area: '' } }, options).fields).toEqual({ type: 'work' })
+  })
+})
+
 describe('getCommentParts', () => {
   test('shows a link back to an agent chat as the app', () => {
     expect(getCommentParts('Agent is running in codex://threads/01a1a0f1-5cbe-7ba1-90ad-c88f7ee78632')).toEqual([
