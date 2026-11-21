@@ -135,7 +135,10 @@ try {
   await step('adds and removes tags in the Tags cell', async () => {
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Book dentist')
     const row = root.locator('tbody tr', { hasText: 'Book dentist' })
-    await row.getByRole('combobox', { name: 'Tags: #health' }).click()
+    // Opens the editor from the start of the cell: the cell's center can be on
+    // the × at the end of a tag, which removes the tag.
+    const openTagEditor = (name) => row.getByRole('combobox', { name }).click({ position: { x: 4, y: 8 } })
+    await openTagEditor('Tags: #health')
     // Typed text becomes a valid tag; Enter adds it.
     await page.getByRole('combobox', { name: 'Search or add tags' }).fill('Dental care')
     await page.getByRole('option', { name: 'Add #Dental-care' }).waitFor()
@@ -153,7 +156,7 @@ try {
     await row.getByRole('combobox', { name: 'Tags: #Dental-care, #home' }).waitFor()
     // From the empty field, the left arrow goes to the last tag, and Alt with
     // the left arrow moves it before the tag next to it.
-    await row.getByRole('combobox', { name: 'Tags: #Dental-care, #home' }).click()
+    await openTagEditor('Tags: #Dental-care, #home')
     await page.getByRole('combobox', { name: 'Search or add tags' }).press('ArrowLeft')
     await page.keyboard.press('Alt+ArrowLeft')
     await page.keyboard.press('Escape')
@@ -261,6 +264,64 @@ try {
       assert.equal(`${claude.protocol}//${claude.host}${claude.pathname}`, 'claude://code/new')
       assert.equal(claude.searchParams.get('folder'), basePath)
       checkPrompt(claude.searchParams.get('q'), 'claude://code/continue?session={id}', 'CLAUDE_CODE_HOST_SESSION_ID')
+
+      // The Prompt setting is the message, with {task}, {note} and {comment} in it.
+      // Typed into the settings tab rendered in the main window, as in "shows the settings tab".
+      // Types `value`, or only reads the box with null, and waits until Obsidian
+      // saves the prompt or shows why it does not.
+      const typePrompt = (value) =>
+        page.evaluate(async (value) => {
+          const tab = window.app.setting.pluginTabs.find((candidate) => candidate.id === 'tasks-table')
+          const { services } = window.app.plugins.plugins['tasks-table']
+          tab.display()
+          const box = tab.containerEl.querySelector('textarea')
+          const item = box.closest('.setting-item')
+          const shown = box.value
+          let errorText = ''
+          if (value !== null) {
+            box.value = value
+            box.dispatchEvent(new Event('input', { bubbles: true }))
+            const start = Date.now()
+            while (Date.now() - start < 3000) {
+              if (item.classList.contains('is-invalid')) {
+                errorText = item.querySelector('.setting-item-error').textContent
+                break
+              }
+              if ((await services.invoke('settings:get', null)).chatPrompt === value.trim()) {
+                break
+              }
+              await new Promise((resolve) => setTimeout(resolve, 50))
+            }
+          }
+          tab.hide()
+          return { shown, errorText }
+        }, value)
+      const storedPrompt = () =>
+        page.evaluate(async () => (await window.app.plugins.plugins['tasks-table'].services.invoke('settings:get', null)).chatPrompt)
+      const openClaudeWith = async (prompt) => {
+        assert.equal((await typePrompt(prompt)).errorText, '')
+        assert.equal(await storedPrompt(), prompt)
+        const count = (await page.evaluate(() => window.openedLinks)).length
+        await actions.click()
+        await page.getByRole('menuitem', { name: 'Run Claude Desktop' }).click()
+        const link = await waitFor(async () => (await page.evaluate(() => window.openedLinks))[count], 'The chat link was not opened.')
+        return new URL(link).searchParams.get('q')
+      }
+      assert.deepEqual(await typePrompt('Plan this first: {task} {comment}'), {
+        shown: 'Help me with this task {task} {note}.\n\n{comment}',
+        errorText: 'Include {task} and {note} in the prompt.',
+      })
+      const task = (await lineWith('Projects/Website.md', 'Write landing page copy')).trim()
+      const note = path.join(basePath, 'Projects/Website.md')
+      const withComment = await openClaudeWith('{comment}\n\nThen plan this task:\n{task}\nThe note is {note}.')
+      assert.ok(withComment.startsWith('Before you start, add this comment'), withComment)
+      assert.ok(withComment.endsWith(`.\n\nThen plan this task:\n${task}\nThe note is ${note}.`), withComment)
+      // Without {comment}, the message asks for no comment.
+      assert.equal(await openClaudeWith('Review {task} in {note}.'), `Review ${task} in ${note}.`)
+      // An empty box goes back to the default prompt, which the box then shows.
+      assert.equal((await typePrompt('')).errorText, '')
+      assert.equal(await storedPrompt(), '')
+      assert.equal((await typePrompt(null)).shown, 'Help me with this task {task} {note}.\n\n{comment}')
     } finally {
       await page.evaluate(() => {
         window.open = window.realOpen

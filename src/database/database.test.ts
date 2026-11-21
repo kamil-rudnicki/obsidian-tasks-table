@@ -76,7 +76,7 @@ describe('settings repository', () => {
   test('falls back to defaults for unknown or invalid rows', async () => {
     const database = await AppDatabase.open(memoryStorage().storage)
     database.sql.exec(
-      `insert into settings values ('taskFormat', '"blue"'), ('setDoneDate', 'not json'), ('other', '1')`,
+      `insert into settings values ('taskFormat', '"blue"'), ('setDoneDate', 'not json'), ('chatPrompt', '"Do it"'), ('other', '1')`,
     )
 
     expect(createSettingsRepository(database).getSettings()).toEqual(defaultSettings)

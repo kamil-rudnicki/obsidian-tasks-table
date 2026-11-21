@@ -8,6 +8,21 @@ export const isFullPath = (path: string): boolean => /^(?:\/|[A-Za-z]:[\\/]|\\\\
 
 export const fullPathMessage = 'Enter a full path, such as /Users/you/Projects/notes.'
 
+// The message in a chat from "Run ChatGPT Desktop" or "Run Claude Desktop".
+// `{task}` becomes the task's line, `{note}` the full path of its note, and
+// `{comment}` the request to add a comment with a link back to the chat.
+export const defaultChatPrompt = 'Help me with this task {task} {note}.\n\n{comment}'
+
+// `{comment}` is optional: without it, the agent adds no comment.
+export const requiredChatPromptPlaceholders = ['{task}', '{note}'] as const
+
+// Empty means the default prompt. Without the task and its note, the agent
+// cannot find the task to work on.
+export const isChatPrompt = (prompt: string): boolean =>
+  prompt === '' || requiredChatPromptPlaceholders.every((placeholder) => prompt.includes(placeholder))
+
+export const chatPromptMessage = 'Include {task} and {note} in the prompt.'
+
 // Each key is one row in the `settings` table. The value column holds JSON.
 export const settingSchemas = {
   newTaskTarget: z.enum(newTaskTargets),
@@ -24,6 +39,8 @@ export const settingSchemas = {
     .trim()
     .max(1024)
     .refine((path) => path === '' || isFullPath(path), fullPathMessage),
+  // That chat's message. Empty means `defaultChatPrompt`.
+  chatPrompt: z.string().trim().max(4000).refine(isChatPrompt, chatPromptMessage),
 } as const
 
 export const settingsSchema = z.object(settingSchemas)
@@ -41,6 +58,7 @@ export const defaultSettings: Settings = {
   setCreatedDate: false,
   moveToStartDateNote: true,
   chatFolder: '',
+  chatPrompt: '',
 }
 
 export const settingsPatchSchema = settingsSchema.partial()

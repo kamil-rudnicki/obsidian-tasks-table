@@ -173,9 +173,11 @@ export class PluginServices {
         if (!(adapter instanceof FileSystemAdapter)) {
           throw new UserError('Desktop chat apps open only from Obsidian on a computer.')
         }
-        const folder = settings.getSettings().chatFolder || adapter.getBasePath()
+        const { chatFolder, chatPrompt } = settings.getSettings()
+        const folder = chatFolder || adapter.getBasePath()
         const prompt = createTaskPrompt({
           app,
+          template: chatPrompt,
           line: task.raw,
           notePath: adapter.getFullPath(task.filePath),
           time: toLocalDateTime(new Date()),

@@ -1,4 +1,5 @@
 import type { ChatApp } from '@shared/apiContract'
+import { defaultChatPrompt } from '@shared/settingsTypes'
 import { formatComment } from '../vault/taskComments'
 
 // "Run ChatGPT Desktop" and "Run Claude Desktop" open a new chat in a desktop
@@ -23,6 +24,9 @@ const agents: Record<ChatApp, Agent> = {
 
 type TaskPromptInput = {
   app: ChatApp
+  // The prompt from the settings, with `{task}`, `{note}` and `{comment}`.
+  // Empty means the default.
+  template: string
   line: string
   // The full path of the note that holds the task.
   notePath: string
@@ -30,18 +34,32 @@ type TaskPromptInput = {
   time: string
 }
 
-// Asks for help with the task, and asks the agent to note on the task, in the
-// form the Comments column reads, that it is running and where its chat is.
-export const createTaskPrompt = ({ app, line, notePath, time }: TaskPromptInput): string => {
+type Placeholder = 'task' | 'note' | 'comment'
+
+// One pass, so a `{note}` in the task's line stays as it is.
+const fillTemplate = (template: string, values: Record<Placeholder, string>): string =>
+  template.replace(/\{(task|note|comment)\}/gu, (_placeholder, name: Placeholder) => values[name])
+
+// Asks the agent to note on the task, in the form the Comments column reads,
+// that it is running and where its chat is.
+const createCommentRequest = (app: ChatApp, time: string): string => {
   const { name, chatLink, idVariable } = agents[app]
   const comment = formatComment({ time, text: `Agent is running in ${chatLink}` })
 
-  return [
-    `Help me with this task ${line.trim()} ${notePath}.`,
+  return (
     `Before you start, add this comment to that task's line in the note: ${comment}, with {id} replaced by the value of the ${idVariable} environment variable. If that variable is empty, write ${name} in place of the link. ` +
-      'A comment is [comment_YYYY-MM-DD HH:mm:: text] with the local date and time. It goes after the task text and its other comments, before its dates and fields, such as 📅 2026-11-05.',
-  ].join('\n\n')
+    'A comment is [comment_YYYY-MM-DD HH:mm:: text] with the local date and time. It goes after the task text and its other comments, before its dates and fields, such as 📅 2026-11-05.'
+  )
 }
+
+// The prompt from the settings with the task, its note and the comment request
+// in place of its placeholders. Without `{comment}`, the agent adds no comment.
+export const createTaskPrompt = ({ app, template, line, notePath, time }: TaskPromptInput): string =>
+  fillTemplate(template.trim() || defaultChatPrompt, {
+    task: line.trim(),
+    note: notePath,
+    comment: createCommentRequest(app, time),
+  })
 
 const encode = encodeURIComponent
 

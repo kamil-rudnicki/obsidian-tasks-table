@@ -7,7 +7,16 @@ import {
   type Plugin,
   type SettingDefinitionItem,
 } from 'obsidian'
-import { defaultSettings, fullPathMessage, isFullPath, settingNames, type SettingName } from '@shared/settingsTypes'
+import {
+  chatPromptMessage,
+  defaultChatPrompt,
+  defaultSettings,
+  fullPathMessage,
+  isChatPrompt,
+  isFullPath,
+  settingNames,
+  type SettingName,
+} from '@shared/settingsTypes'
 import { UserError } from '@shared/userError'
 import { describeSyncStatus } from '@/logic/syncStatusLogic'
 import type { PluginServices } from './pluginServices'
@@ -29,7 +38,12 @@ export class TasksTableSettingTab extends PluginSettingTab {
     if (!isSettingName(key)) {
       return undefined
     }
-    return (this.services.getSettings() ?? defaultSettings)[key]
+    const settings = this.services.getSettings() ?? defaultSettings
+    // The box shows the prompt that chats use, so you can edit it in place.
+    if (key === 'chatPrompt') {
+      return settings.chatPrompt || defaultChatPrompt
+    }
+    return settings[key]
   }
 
   async setControlValue(key: string, value: unknown): Promise<void> {
@@ -166,6 +180,19 @@ export class TasksTableSettingTab extends PluginSettingTab {
               key: 'chatFolder',
               placeholder: vaultFolder,
               validate: (value) => (value.trim() === '' || isFullPath(value.trim()) ? undefined : fullPathMessage),
+            },
+          },
+          {
+            name: 'Prompt',
+            desc: 'The message in a new chat. {task} is the task’s line and {note} is the full path of its note. {comment} asks the agent to add a comment to the task with a link to its chat; remove it if you do not want the comment. Clear the box to use the default.',
+            aliases: ['chatgpt', 'claude', 'codex', 'ai', 'message', 'instructions'],
+            visible: () => Platform.isDesktopApp,
+            control: {
+              type: 'textarea',
+              key: 'chatPrompt',
+              placeholder: defaultChatPrompt,
+              rows: 5,
+              validate: (value) => (isChatPrompt(value.trim()) ? undefined : chatPromptMessage),
             },
           },
         ],
