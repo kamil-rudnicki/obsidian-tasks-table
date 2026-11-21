@@ -74,6 +74,7 @@ export class PluginServices {
         index: this.index,
         indexer: this.indexer,
         getSettings: settings.getSettings,
+        getQueryContext: () => this.dailyNoteDates.getQueryContext(),
       })
 
       views.seedDefaultViews()
@@ -137,6 +138,7 @@ export class PluginServices {
         this.index.listTasks(query, getToday(), await this.dailyNoteDates.getQueryContext()),
       'tasks:create': (input) => writer.createTask(input),
       'tasks:update': (input) => writer.updateTask(input),
+      'tasks:moveToToday': ({ id }) => writer.moveTaskToToday(id),
       'tasks:comment': (input) => writer.addComment(input),
       'tasks:editComment': (input) => writer.editComment(input),
       'tasks:delete': async ({ id }) => {

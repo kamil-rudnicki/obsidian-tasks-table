@@ -8,6 +8,7 @@ import { createNoteFiles, normalizeNotePath, type TargetNote } from './noteFiles
 import { splitLines, type IndexedTask } from './noteTasks'
 import { toPublicTask, type TaskIndex } from './taskIndex'
 import { addTaskComment, applyTaskChanges, createTaskLine, editTaskComment, type TaskChangeOptions } from './taskLine'
+import type { TaskQueryContext } from './taskQuery'
 import type { VaultIndexer } from './vaultIndexer'
 
 type TaskWriterOptions = {
@@ -15,6 +16,8 @@ type TaskWriterOptions = {
   index: TaskIndex
   indexer: VaultIndexer
   getSettings: () => Settings
+  // Tells which notes are daily notes, for the tasks the writer returns.
+  getQueryContext: () => Promise<TaskQueryContext>
 }
 
 const taskChangedMessage = 'This task changed in the note. The list now shows the latest version.'
@@ -26,7 +29,7 @@ type LineEdit = { notePath: string; line: number; before: string; after: string 
 const maxUndoEdits = 50
 
 // Writes task edits back to the Markdown notes, then re-indexes the notes.
-export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWriterOptions) => {
+export const createTaskWriter = ({ app, index, indexer, getSettings, getQueryContext }: TaskWriterOptions) => {
   const { vault } = app
   const notes = createNoteFiles(app)
   const undoEdits: LineEdit[] = []
@@ -128,12 +131,12 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
     return { removed, content }
   }
 
-  const getTaskAt = (notePath: string, line: number): Task => {
+  const getTaskAt = async (notePath: string, line: number): Promise<Task> => {
     const task = index.getTaskAtLine(notePath, line)
     if (!task) {
       throw new UserError('The task was saved, but it could not be read back from the note.')
     }
-    return toPublicTask(task)
+    return toPublicTask(task, await getQueryContext())
   }
 
   // Moves the task, with its subtasks and notes, to `target` and applies `edit`
@@ -189,6 +192,19 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
       const lineEdit = await editTaskLine(id, edit)
       rememberEdit(lineEdit)
       return getTaskAt(lineEdit.notePath, lineEdit.line)
+    })
+
+  // Moves the task, with its subtasks and notes, to today's daily note as it is.
+  // A task that is in that note already stays where it is.
+  const moveTaskToToday = (id: string): Promise<Task> =>
+    indexer.runExclusive(async () => {
+      const { task } = findTask(id)
+      const target = await notes.getDailyNote(new Date())
+
+      if (target.notePath === task.filePath) {
+        return toPublicTask(task, await getQueryContext())
+      }
+      return moveTask(task, target, (line) => line)
     })
 
   // The comment gets the current local time. The task keeps its id.
@@ -276,7 +292,7 @@ export const createTaskWriter = ({ app, index, indexer, getSettings }: TaskWrite
       return getTaskAt(edit.notePath, located.line)
     })
 
-  return { updateTask, addComment, editComment, deleteTask, cutTask, createTask, undoLastEdit }
+  return { updateTask, moveTaskToToday, addComment, editComment, deleteTask, cutTask, createTask, undoLastEdit }
 }
 
 export type TaskWriter = ReturnType<typeof createTaskWriter>

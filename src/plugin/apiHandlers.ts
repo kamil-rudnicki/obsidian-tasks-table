@@ -23,6 +23,7 @@ const inputSchemas: { [Channel in ApiChannel]: z.ZodType<ApiInput<Channel>> } = 
   'tasks:comment': addTaskCommentInputSchema,
   'tasks:editComment': editTaskCommentInputSchema,
   'tasks:delete': idInputSchema,
+  'tasks:moveToToday': idInputSchema,
   'tasks:cut': idInputSchema,
   'tasks:undo': emptyInputSchema,
   'tasks:options': taskOptionsInputSchema,

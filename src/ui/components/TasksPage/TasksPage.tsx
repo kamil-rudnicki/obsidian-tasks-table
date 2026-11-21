@@ -4,6 +4,7 @@ import { useSelector } from '@tanstack/react-store'
 import type { Settings } from '@shared/settingsTypes'
 import type { View } from '@shared/viewTypes'
 import { DeleteTaskDialog } from '@/components/DeleteTaskDialog/DeleteTaskDialog'
+import { MoveToTodayDialog } from '@/components/MoveToTodayDialog/MoveToTodayDialog'
 import { TasksTable } from '@/components/TasksTable/TasksTable'
 import { TasksToolbar } from '@/components/TasksToolbar/TasksToolbar'
 import { Button } from '@/components/ui/button'
@@ -123,6 +124,7 @@ export const TasksPage = () => {
       ) : null}
       <ViewNameDialog />
       <DeleteTaskDialog />
+      <MoveToTodayDialog />
     </div>
   )
 }

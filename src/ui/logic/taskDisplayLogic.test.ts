@@ -93,6 +93,7 @@ const task: Task = {
   filePath: 'a.md',
   note: 'a',
   folder: '',
+  dailyNote: null,
   line: 0,
   level: 1,
   description: 'A',

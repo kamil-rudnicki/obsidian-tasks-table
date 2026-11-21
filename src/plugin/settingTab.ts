@@ -156,13 +156,23 @@ export class TasksTableSettingTab extends PluginSettingTab {
       },
       {
         type: 'group',
-        heading: 'Start date',
+        heading: 'Daily notes',
         items: [
           {
             name: 'Move tasks to the daily note of their start date',
             desc: 'When you change a start date in the table, the task and its subtasks move to that day’s daily note, under the heading above. The note is created when it does not exist.',
-            aliases: ['daily note', 'move'],
+            aliases: ['daily note', 'move', 'start date'],
             control: { type: 'toggle', key: 'moveToStartDateNote' },
+          },
+          {
+            name: 'Move done and cancelled tasks to today’s daily note',
+            desc: 'When you complete or cancel a task from another note in the table, the task and its subtasks can move to today’s daily note, under the heading above.',
+            aliases: ['daily note', 'move', 'complete', 'done', 'cancel'],
+            control: {
+              type: 'dropdown',
+              key: 'moveClosedToToday',
+              options: { ask: 'Ask each time', always: 'Always', never: 'Never' },
+            },
           },
         ],
       },

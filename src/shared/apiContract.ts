@@ -29,6 +29,8 @@ export type ApiContract = {
   // Edits one comment, preserving its time, only if it still matches the original.
   'tasks:editComment': { input: EditTaskCommentInput; output: Task }
   'tasks:delete': { input: { id: string }; output: null }
+  // Moves the task, with its subtasks, to today's daily note, which is created when needed.
+  'tasks:moveToToday': { input: { id: string }; output: Task }
   // Copies the task, with its subtasks, to the clipboard and removes it from its note.
   'tasks:cut': { input: { id: string }; output: null }
   // Puts back the task line the table changed last. Null when there is nothing to undo.

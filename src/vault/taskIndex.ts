@@ -20,7 +20,10 @@ const maxTagOptions = 1000
 const getSignature = (tasks: IndexedTask[]): string =>
   tasks.map((task) => `${task.id}:${task.line}:${task.raw}`).join('\n')
 
-export const toPublicTask = ({ raw: _raw, ...task }: IndexedTask): Task => task
+export const toPublicTask = ({ raw: _raw, ...task }: IndexedTask, context: TaskQueryContext): Task => ({
+  ...task,
+  dailyNote: context.getDailyNoteDate(task.filePath),
+})
 
 // The tasks of every note, held in memory. The Markdown notes are the only
 // source of tasks; this index is rebuilt from them on every start.
@@ -87,7 +90,7 @@ export class TaskIndex {
       }
     }
 
-    return tasks.sort(createTaskComparator(query.sorting)).map(toPublicTask)
+    return tasks.sort(createTaskComparator(query.sorting)).map((task) => toPublicTask(task, context))
   }
 
   getTask(id: string): IndexedTask | null {

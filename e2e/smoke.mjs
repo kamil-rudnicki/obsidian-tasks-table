@@ -93,6 +93,11 @@ try {
     await page.getByRole('menuitemcheckbox', { name: 'Checkbox', exact: true }).click()
     await page.keyboard.press('Escape')
     await root.locator('tbody tr', { hasText: 'Review pricing page' }).getByRole('checkbox').click()
+    // The task is not in today's daily note, so the table asks to move it there.
+    const dialog = page.getByRole('alertdialog', { name: 'Move to today’s daily note?' })
+    await dialog.getByText('“Review pricing page” and its subtasks move from Website to today’s daily note.').waitFor()
+    await dialog.getByRole('button', { name: 'Keep in note' }).click()
+    await dialog.waitFor({ state: 'detached' })
     const line = await waitFor(
       async () => {
         const current = await lineWith('Projects/Website.md', 'Review pricing page')
@@ -564,6 +569,55 @@ try {
     await root.locator('[data-slot=scroll-area-viewport]').first().evaluate((viewport) => {
       viewport.scrollLeft = 0
     })
+  })
+
+  await step('asks to move a cancelled task to today’s daily note, and saves the answer', async () => {
+    const [today, tomorrow] = await page.evaluate(() => [
+      window.moment().format('YYYY-MM-DD'),
+      window.moment().add(1, 'day').format('YYYY-MM-DD'),
+    ])
+    const getMoveSetting = () =>
+      page.evaluate(
+        async () =>
+          (await window.app.plugins.plugins['tasks-table'].services.invoke('settings:get', null)).moveClosedToToday,
+      )
+    const setStatus = async (title, status) => {
+      await page.getByRole('textbox', { name: 'Search tasks' }).fill(title)
+      await root.locator('tbody tr', { hasText: title }).getByRole('button', { name: /^Status: /u }).click()
+      await page.getByRole('menuitemradio', { name: status }).click()
+    }
+    await root.getByRole('button', { name: 'Search' }).click()
+    // The step above moved the task, with its subtask, to tomorrow's daily note.
+    await setStatus('Prepare offsite agenda', 'Cancelled')
+    const dialog = page.getByRole('alertdialog', { name: 'Move to today’s daily note?' })
+    await dialog.getByText(`from ${tomorrow} to today’s daily note`).waitFor()
+    // Move has the focus, so Enter moves the task.
+    await page.waitForFunction(() => document.activeElement?.textContent === 'Move')
+    await dialog.getByRole('checkbox', { name: 'Don’t ask again' }).click()
+    await dialog.getByRole('button', { name: 'Move' }).click()
+    const note = await waitFor(async () => {
+      const content = await read(`Daily/${today}.md`)
+      return content?.includes('Prepare offsite agenda') ? content : null
+    }, 'The task was not moved to today’s daily note.')
+    const moved = `- [-] Prepare offsite agenda #work [start:: ${tomorrow}] [cancelled:: ${today}]\n\t- [ ] Book venue\n`
+    assert.ok(note.includes(moved), `Today’s daily note:\n${note}`)
+    await waitFor(
+      async () => !(await read(`Daily/${tomorrow}.md`)).includes('Prepare offsite agenda'),
+      'The task is still in tomorrow’s daily note.',
+    )
+    assert.equal(await getMoveSetting(), 'always')
+    // With the answer saved, the next completed task moves without a question.
+    await setStatus('Ship beta', 'Done')
+    await waitFor(
+      async () => (await lineWith(`Daily/${today}.md`, 'Ship beta'))?.startsWith('- [x] Ship beta'),
+      'The done task did not move to today’s daily note.',
+    )
+    assert.equal(await lineWith('Projects/Website.md', 'Ship beta'), undefined)
+    assert.equal(await dialog.count(), 0)
+    await page.evaluate(() =>
+      window.app.plugins.plugins['tasks-table'].services.invoke('settings:update', { moveClosedToToday: 'ask' }),
+    )
+    await page.getByRole('button', { name: 'Clear search' }).click()
   })
 
   await step('sorts by tags', async () => {

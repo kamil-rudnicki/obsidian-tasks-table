@@ -6,6 +6,7 @@ import { invoke } from '@/lib/api'
 import { notify, notifyError } from '@/lib/notify'
 import { queryKeys } from '@/lib/queries'
 import { queryClient } from '@/lib/queryClient'
+import { isClosedAwayFromToday, offerMoveToToday } from '@/logic/moveToTodayLogic'
 import { applyChangesLocally, getDisplayTitle } from '@/logic/taskDisplayLogic'
 
 const refreshTasks = (): Promise<void> =>
@@ -36,6 +37,8 @@ export const updateTask = async (task: Task, changes: TaskChanges): Promise<void
     const updated = await invoke('tasks:update', { id: task.id, changes })
     if (updated.filePath !== task.filePath) {
       notify(`Moved to ${updated.note}`)
+    } else if (isClosedAwayFromToday(task, updated, options.today)) {
+      void offerMoveToToday(updated)
     }
   } catch (error) {
     undo()

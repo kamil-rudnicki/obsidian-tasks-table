@@ -134,6 +134,21 @@ describe('task index', () => {
     ])
   })
 
+  test('gives each task the day of its daily note', () => {
+    const { index } = createIndex()
+    const tasks = index.listTasks({ filters: [], sorting: [], search: '' }, today, context)
+
+    expect(tasks.map((task) => [task.note, task.dailyNote])).toEqual([
+      ['2026-10-30', '2026-10-30'],
+      ['2026-10-30', '2026-10-30'],
+      ['2026-10-30', '2026-10-30'],
+      ['app', null],
+      ['app', null],
+      ['app', null],
+    ])
+    expect(tasks[0]).not.toHaveProperty('raw')
+  })
+
   test('filters tags including nested tags', () => {
     const { list } = createIndex()
 

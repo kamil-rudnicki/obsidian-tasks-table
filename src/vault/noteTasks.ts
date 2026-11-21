@@ -3,7 +3,9 @@ import type { Task } from '@shared/taskTypes'
 import { createListLevelReader } from './listLevels'
 import { parseTaskLine } from './taskLineSyntax'
 
-export type IndexedTask = Task & { raw: string }
+// The daily note date of a task depends on the Daily notes settings, which can
+// change at any time, so the index does not hold it.
+export type IndexedTask = Omit<Task, 'dailyNote'> & { raw: string }
 
 export const splitLines = (content: string): string[] => content.split(/\r?\n/u)
 

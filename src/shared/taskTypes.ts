@@ -36,6 +36,9 @@ export type Task = {
   filePath: string
   note: string
   folder: string
+  // The date of the daily note that holds the task, as the Daily notes
+  // settings name notes. Null for notes that are not daily notes.
+  dailyNote: string | null
   // Zero-based line number inside the note.
   line: number
   // 1 for a task that is not inside another list item, 2 for one inside it, and so on.

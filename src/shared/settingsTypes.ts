@@ -2,6 +2,9 @@ import { z } from 'zod'
 
 export const taskFormats = ['emoji', 'dataview'] as const
 export const newTaskTargets = ['dailyNote', 'note'] as const
+// What happens when you complete or cancel a task that is not in today's daily note.
+export const closedTaskMoves = ['ask', 'always', 'never'] as const
+export type ClosedTaskMove = (typeof closedTaskMoves)[number]
 
 // A full path on macOS, Linux or Windows, such as `/Users/you/Projects`.
 export const isFullPath = (path: string): boolean => /^(?:\/|[A-Za-z]:[\\/]|\\\\)/u.test(path)
@@ -32,6 +35,7 @@ export const settingSchemas = {
   setDoneDate: z.boolean(),
   setCreatedDate: z.boolean(),
   moveToStartDateNote: z.boolean(),
+  moveClosedToToday: z.enum(closedTaskMoves),
   // The folder a chat from "Run ChatGPT Desktop" or "Run Claude Desktop" works in.
   // Empty means the vault folder.
   chatFolder: z
@@ -57,6 +61,7 @@ export const defaultSettings: Settings = {
   setDoneDate: true,
   setCreatedDate: false,
   moveToStartDateNote: true,
+  moveClosedToToday: 'ask',
   chatFolder: '',
   chatPrompt: '',
 }
