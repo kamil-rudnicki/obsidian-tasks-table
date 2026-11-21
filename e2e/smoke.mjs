@@ -165,6 +165,15 @@ try {
       'The new tag order was not written.',
     )
     await row.getByRole('combobox', { name: 'Tags: #home, #Dental-care' }).waitFor()
+    // Pointing at a tag in the cell shows an × that removes it, without the editor.
+    const dentalCare = row.locator('td[data-col-id=tags] [data-tag-color]', { hasText: '#Dental-care' })
+    await dentalCare.hover()
+    await dentalCare.locator('[data-slot=tag-remove]').click()
+    await waitFor(
+      async () => /^- \[ \] Book dentist #home \[due:: [\d-]+\]/u.test(await lineWith('Personal/Home.md', 'Book dentist')),
+      'The tag was not removed from the cell.',
+    )
+    assert.equal(await page.locator('[data-slot=combobox-content]').count(), 0, 'The tag editor opened.')
   })
 
   await step('edits a title inline', async () => {

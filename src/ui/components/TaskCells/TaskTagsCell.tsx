@@ -122,7 +122,12 @@ export const TaskTagsCell = ({ task }: { task: Task }) => {
         aria-label={tags.length > 0 ? `Tags: ${tags.map((tag) => `#${tag}`).join(', ')}` : 'Add tags'}
       >
         {tags.map((tag) => (
-          <TagBadge key={tag} tag={tag} />
+          <TagBadge
+            key={tag}
+            tag={tag}
+            // Removes the tag at once, without the editor; Mod+Z brings it back.
+            onRemove={open ? undefined : () => void updateTask(task, { tags: task.tags.filter((item) => item !== tag) })}
+          />
         ))}
       </ComboboxPrimitive.Trigger>
       <ComboboxContent align='start' className='w-72'>
