@@ -4,10 +4,12 @@ import {
   applyChangesLocally,
   formatExactDate,
   formatTaskDate,
+  getDialogTitle,
   getDisplayTitle,
   getDisplayValue,
   getTextParts,
   isOverdue,
+  shortenText,
 } from './taskDisplayLogic'
 
 describe('getDisplayTitle', () => {
@@ -21,6 +23,40 @@ describe('getDisplayTitle', () => {
     ['Read [source:: [[Meeting notes|Notes]]] [person name:: Ann]', 'Read'],
   ])('shows %s as %s', (description, title) => {
     expect(getDisplayTitle(description)).toBe(title)
+  })
+})
+
+describe('shortenText', () => {
+  test('keeps text that fits', () => {
+    expect(shortenText('Call the vendor', 15)).toBe('Call the vendor')
+  })
+
+  test('cuts after the last whole word and adds an ellipsis', () => {
+    expect(shortenText('Call the vendor about the new invoice', 20)).toBe('Call the vendor…')
+    expect(shortenText('Call the vendor about the new invoice', 20)).toHaveLength(16)
+  })
+
+  test('cuts inside a long word, such as an address, when no space is close', () => {
+    expect(shortenText('See https://timecampdev.atlassian.net/browse/TCD-13709', 24)).toBe('See https://timecampdev…')
+  })
+
+  test('drops punctuation and opening quotes before the ellipsis', () => {
+    expect(shortenText('First check the logs, then “write the reply', 23)).toBe('First check the logs…')
+    expect(shortenText('Ask Ann (and Bob) later', 10)).toBe('Ask Ann…')
+  })
+
+  test('never splits an emoji', () => {
+    expect(shortenText('🚀🚀🚀🚀🚀🚀', 4)).toBe('🚀🚀🚀…')
+  })
+})
+
+describe('getDialogTitle', () => {
+  test('shows a long title as its first 80 characters at most', () => {
+    const title = getDialogTitle(
+      'czesc, https://timecampdev.atlassian.net/browse/TCD-13709 popatrzysz tu na komentarz. Wiem że w apce AI jakos to u Ciebie dziala #process/customer-support [id:: 2580]',
+    )
+    expect(title).toBe('czesc, https://timecampdev.atlassian.net/browse/TCD-13709 popatrzysz tu na…')
+    expect(Array.from(title).length).toBeLessThanOrEqual(80)
   })
 })
 

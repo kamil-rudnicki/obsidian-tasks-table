@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { cancelTaskDelete, confirmTaskDelete, deleteTaskStore } from '@/logic/deleteTaskLogic'
-import { getDisplayTitle } from '@/logic/taskDisplayLogic'
+import { getDialogTitle } from '@/logic/taskDisplayLogic'
 
 export const DeleteTaskDialog = () => {
   const task = useSelector(deleteTaskStore, (state) => state.task)
@@ -22,7 +22,7 @@ export const DeleteTaskDialog = () => {
           <AlertDialogTitle>Delete this task?</AlertDialogTitle>
           <AlertDialogDescription>
             {task
-              ? `“${getDisplayTitle(task.description)}” is removed from the note ${task.note}.`
+              ? `“${getDialogTitle(task.description)}” is removed from the note ${task.note}.`
               : null}
           </AlertDialogDescription>
         </AlertDialogHeader>

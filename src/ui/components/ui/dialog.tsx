@@ -103,7 +103,8 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot='dialog-description'
-      className={cn('text-sm text-muted-foreground', className)}
+      // A word longer than the line, such as a long view name, wraps inside the dialog.
+      className={cn('text-sm wrap-anywhere text-muted-foreground', className)}
       {...props}
     />
   )

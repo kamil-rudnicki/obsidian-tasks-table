@@ -216,6 +216,52 @@ try {
     await page.getByRole('button', { name: 'Clear search' }).click()
   })
 
+  await step('keeps a long task name short and inside the dialogs', async () => {
+    const title =
+      'Reply to https://timecampdev.atlassian.net/browse/TCD-13709_with_a_very_long_address_and_no_spaces and write down what the customer said about the new reports'
+    // Gives back nothing: the new file object cannot be sent to the test.
+    await page.evaluate(async (line) => {
+      await window.app.vault.create('Notes/Long name.md', `- [ ] ${line}\n`)
+    }, title)
+    await root.getByRole('button', { name: 'Search' }).click()
+    await page.getByRole('textbox', { name: 'Search tasks' }).fill('TCD-13709')
+    const row = root.locator('tbody tr', { hasText: 'TCD-13709' })
+    // The text wraps inside the dialog, the footer is as wide as the dialog,
+    // and the name ends after 80 characters.
+    const checkFits = async (dialog) => {
+      const size = await dialog.evaluate((popup) => {
+        const description = popup.querySelector('[data-slot=alert-dialog-description]')
+        const footer = popup.querySelector('[data-slot=alert-dialog-footer]')
+        return {
+          popup: popup.getBoundingClientRect().width,
+          footer: footer.getBoundingClientRect().width,
+          textWidth: description.scrollWidth,
+          room: description.clientWidth,
+          text: description.textContent,
+        }
+      })
+      assert.ok(size.textWidth <= size.room, `The text is ${size.textWidth}px wide in ${size.room}px.`)
+      assert.ok(Math.abs(size.footer - size.popup) < 1, `The footer is ${size.footer}px wide in a ${size.popup}px dialog.`)
+      assert.ok(size.text.includes('…”') && !size.text.includes('new reports'), size.text)
+    }
+    await row.getByRole('button', { name: 'Task actions' }).click()
+    await page.getByRole('menuitem', { name: 'Delete task…' }).click()
+    const deleteDialog = page.getByRole('alertdialog', { name: 'Delete this task?' })
+    await checkFits(deleteDialog)
+    await deleteDialog.getByRole('button', { name: 'Cancel' }).click()
+    await deleteDialog.waitFor({ state: 'detached' })
+    await row.getByRole('checkbox').click()
+    const moveDialog = page.getByRole('alertdialog', { name: 'Move to today’s daily note?' })
+    await checkFits(moveDialog)
+    await moveDialog.getByRole('button', { name: 'Keep in note' }).click()
+    await moveDialog.waitFor({ state: 'detached' })
+    // The note goes again, so the next steps see the vault they expect.
+    await page.evaluate(async () => {
+      await window.app.vault.delete(window.app.vault.getAbstractFileByPath('Notes/Long name.md'))
+    })
+    await page.getByRole('button', { name: 'Clear search' }).click()
+  })
+
   await step('cuts a task with its notes to the clipboard', async () => {
     // A stand-in for the clipboard, so a test run keeps the clipboard of the app in use.
     await page.evaluate(() => {

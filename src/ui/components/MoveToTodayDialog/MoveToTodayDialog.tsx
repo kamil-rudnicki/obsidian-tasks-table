@@ -17,7 +17,7 @@ import {
   moveToTodayStore,
   setRememberMoveToToday,
 } from '@/logic/moveToTodayLogic'
-import { getDisplayTitle } from '@/logic/taskDisplayLogic'
+import { getDialogTitle } from '@/logic/taskDisplayLogic'
 
 // Asks to move a task you just completed or cancelled to today's daily note.
 export const MoveToTodayDialog = () => {
@@ -32,7 +32,7 @@ export const MoveToTodayDialog = () => {
           <AlertDialogTitle>Move to today’s daily note?</AlertDialogTitle>
           <AlertDialogDescription>
             {task
-              ? `“${getDisplayTitle(task.description)}” and its subtasks move from ${task.note} to today’s daily note.`
+              ? `“${getDialogTitle(task.description)}” and its subtasks move from ${task.note} to today’s daily note.`
               : null}
           </AlertDialogDescription>
         </AlertDialogHeader>

@@ -25,6 +25,24 @@ export const getDisplayTitle = (description: string): string => {
   return title === '' ? description : title
 }
 
+// At most `maxLength` characters, cut after the last whole word when it is not
+// too far back, and ended with "…". Emoji and other characters made of two
+// code units are never split.
+export const shortenText = (text: string, maxLength: number): string => {
+  const characters = Array.from(text)
+  if (characters.length <= maxLength) {
+    return text
+  }
+  const cut = characters.slice(0, maxLength - 1).join('')
+  const lastSpace = cut.search(/\s\S*$/u)
+  const atWord = lastSpace >= cut.length / 2 ? cut.slice(0, lastSpace) : cut
+  return `${atWord.replace(/[\s.,;:!?'"“”‘’([{_-]+$/u, '')}…`
+}
+
+// The title in a dialog's sentence: long enough to know the task, short enough
+// to keep the dialog small.
+export const getDialogTitle = (description: string): string => shortenText(getDisplayTitle(description), 80)
+
 const monthDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
 const monthDayYear = new Intl.DateTimeFormat('en-US', {
   month: 'short',
