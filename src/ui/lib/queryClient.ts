@@ -7,6 +7,8 @@ export const queryClient = new QueryClient({
       // The plugin pushes change events, so data is fresh until an event says otherwise.
       staleTime: Infinity,
       refetchOnWindowFocus: false,
+      // Queries read from the plugin, not from the network, so they also run offline.
+      networkMode: 'always',
       retry: false,
     },
   },

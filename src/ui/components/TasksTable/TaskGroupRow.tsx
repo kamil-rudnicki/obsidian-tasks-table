@@ -1,12 +1,12 @@
 import { ChevronRightIcon } from 'lucide-react'
 import type { Row } from '@tanstack/react-table'
-import { getToday } from '@shared/dateLogic'
 import type { Task, TaskGroupField } from '@shared/taskTypes'
 import type { DataGridFeatures } from '@/components/reui/data-grid/data-grid'
 import { TaskPriorityIcon } from '@/components/TaskCells/TaskPriorityIcon'
 import { TaskStatusIcon } from '@/components/TaskCells/TaskStatusIcon'
 import { cn } from '@/lib/utils'
 import { getGroupFieldLabel, getGroupLabel } from '@/logic/groupingLogic'
+import { useToday } from '@/logic/todayLogic'
 
 type TaskGroupRowProps = {
   row: Row<DataGridFeatures, Task>
@@ -42,10 +42,11 @@ const GroupValue = ({ field, groupKey, task, label }: { field: TaskGroupField; g
 // A group's header, like Bases: the property, its value and the number of tasks.
 // Only the name opens or closes the group, not the whole row.
 export const TaskGroupRow = ({ row, field }: TaskGroupRowProps) => {
+  const today = useToday()
   const task = row.original
   // The group column's value: always text, '' for tasks without one.
   const groupKey = typeof row.groupingValue === 'string' ? row.groupingValue : ''
-  const label = getGroupLabel(field, groupKey, task, getToday())
+  const label = getGroupLabel(field, groupKey, task, today)
   const isExpanded = row.getIsExpanded()
   // A first-level group holds the rows of its subgroups, so count only the tasks.
   const taskCount = row.getLeafRows().filter((leaf) => !leaf.getIsGrouped()).length

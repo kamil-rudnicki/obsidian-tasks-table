@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { addDays, getToday, parseIsoDate, toIsoDate } from '@shared/dateLogic'
+import { addDays, parseIsoDate, toIsoDate } from '@shared/dateLogic'
 import type { Task } from '@shared/taskTypes'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { updateTask } from '@/logic/taskActions'
 import { formatTaskDate, isOverdue } from '@/logic/taskDisplayLogic'
 import { columnLabels } from '@/logic/taskLabels'
+import { useToday } from '@/logic/todayLogic'
 import { cellTriggerClassName } from './cellTriggerClassName'
 
 type EditableDateField = 'dueDate' | 'scheduledDate' | 'startDate'
@@ -21,7 +22,7 @@ export const TaskDateCell = ({ task, field }: { task: Task; field: EditableDateF
   const [open, setOpen] = useState(false)
   const popupRef = useRef<HTMLDivElement>(null)
   const value = task[field]
-  const today = getToday()
+  const today = useToday()
   const label = columnLabels[field]
 
   const setDate = (date: string | null): void => {

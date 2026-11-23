@@ -3,6 +3,7 @@ import { setPluginApi } from '@/lib/api'
 import { queryClient } from '@/lib/queryClient'
 import { subscribeToAppEvents } from '@/logic/appEvents'
 import { flushViewSaves, restoreActiveView } from '@/logic/viewActions'
+import { watchDay } from './plugin/dayWatcher'
 import { PluginServices } from './plugin/pluginServices'
 import { TasksTableSettingTab } from './plugin/settingTab'
 import { TasksTableView, tasksTableViewType } from './plugin/tasksTableView'
@@ -23,6 +24,7 @@ export default class TasksTablePlugin extends Plugin {
     })
     this.register(subscribeToAppEvents(queryClient))
     restoreActiveView()
+    watchDay(this, (today) => services.emit({ type: 'day-changed', today }))
 
     this.registerView(tasksTableViewType, (leaf) => new TasksTableView(leaf, services))
     this.addRibbonIcon('list-checks', 'Open tasks table', () => void this.openTasksTable())

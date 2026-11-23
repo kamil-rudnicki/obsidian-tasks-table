@@ -1,9 +1,12 @@
-import { getToday } from '@shared/dateLogic'
 import { formatTaskDate } from '@/logic/taskDisplayLogic'
+import { useToday } from '@/logic/todayLogic'
 
-export const TaskReadOnlyDateCell = ({ value }: { value: string | null }) =>
-  value ? (
+export const TaskReadOnlyDateCell = ({ value }: { value: string | null }) => {
+  const today = useToday()
+
+  return value ? (
     <span className='block truncate text-muted-foreground tabular-nums'>
-      {formatTaskDate(value, getToday())}
+      {formatTaskDate(value, today)}
     </span>
   ) : null
+}

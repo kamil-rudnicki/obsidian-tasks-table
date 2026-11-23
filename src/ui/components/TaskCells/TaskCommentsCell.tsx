@@ -1,11 +1,11 @@
 import { useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type SubmitEvent } from 'react'
 import { ArrowUpIcon, MessageSquareIcon } from 'lucide-react'
-import { getToday } from '@shared/dateLogic'
 import type { Task } from '@shared/taskTypes'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { addComment } from '@/logic/taskActions'
+import { useToday } from '@/logic/todayLogic'
 import { cellTriggerClassName } from './cellTriggerClassName'
 import { TaskCommentItem } from './TaskCommentItem'
 
@@ -25,7 +25,7 @@ export const TaskCommentsCell = ({ task }: { task: Task }) => {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const listRef = useRef<HTMLOListElement | null>(null)
   const { comments } = task
-  const today = getToday()
+  const today = useToday()
 
   // The newest comment shows when the list opens and when a comment is added.
   // The list mounts with the popup, after the popup's own effects.

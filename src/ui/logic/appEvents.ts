@@ -2,12 +2,18 @@ import type { QueryClient } from '@tanstack/react-query'
 import { getPluginApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queries'
 import { setNewTaskOpen } from '@/logic/newTaskLogic'
+import { setToday } from '@/logic/todayLogic'
 import { focusSearch } from '@/logic/viewStateLogic'
 
 export const subscribeToAppEvents = (queryClient: QueryClient): (() => void) =>
   getPluginApi().onEvent((event) => {
     switch (event.type) {
       case 'tasks-changed':
+        void queryClient.invalidateQueries({ queryKey: queryKeys.tasks })
+        break
+      case 'day-changed':
+        setToday(event.today)
+        // Filters such as "Today" now match other tasks.
         void queryClient.invalidateQueries({ queryKey: queryKeys.tasks })
         break
       case 'views-changed':

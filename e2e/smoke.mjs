@@ -45,6 +45,9 @@ const addFilter = async (field, value) => {
   await valueOption.click()
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
+  // The menu gives the focus back to its button as it closes, so the next keys
+  // wait until it is gone.
+  await page.locator('[data-slot=dropdown-menu-content]').waitFor({ state: 'detached' })
 }
 
 const step = async (name, run) => {
@@ -512,9 +515,7 @@ try {
     assert.equal(await root.locator('tbody tr', { hasText: 'Buy milk' }).count(), 1)
     // A day picked from the calendar. Opened from the keyboard, the calendar
     // focuses today, so the left arrow moves to yesterday.
-    // The Filter menu gives the focus back to its button as it closes, so the
-    // keys wait until it is gone and the value menu has the focus.
-    await page.locator('[data-slot=dropdown-menu-content]').waitFor({ state: 'detached' })
+    // The keys wait until the value menu has the focus.
     await root.getByRole('button', { name: 'Daily note: Today' }).focus()
     await page.keyboard.press('Enter')
     await page.waitForFunction(() => document.activeElement?.closest('[data-slot=dropdown-menu-content]'))
@@ -663,6 +664,69 @@ try {
     await page.evaluate(() =>
       window.app.plugins.plugins['tasks-table'].services.invoke('settings:update', { moveClosedToToday: 'ask' }),
     )
+    await page.getByRole('button', { name: 'Clear search' }).click()
+  })
+
+  await step('shows the new day when the date changes', async () => {
+    const tomorrow = await page.evaluate(() => window.moment().add(1, 'day').format('YYYY-MM-DD'))
+    const taskLine = `- [ ] Water the plants [due:: ${tomorrow}]\n`
+    // Moves the clock without a change in any note, then comes back to Obsidian.
+    const setClock = (days) =>
+      page.evaluate((offset) => {
+        const RealDate = (window.realDate ??= window.Date)
+        const now = () => RealDate.now() + offset
+        window.Date = offset === 0
+          ? RealDate
+          : new Proxy(RealDate, {
+              construct: (target, args) => (args.length === 0 ? new target(now()) : new target(...args)),
+              get: (target, key) => (key === 'now' ? now : Reflect.get(target, key)),
+            })
+        window.dispatchEvent(new Event('focus'))
+      }, days * 24 * 60 * 60 * 1000)
+    const changeNote = (from, to) =>
+      page.evaluate(
+        async ([notePath, oldText, newText]) => {
+          const file = window.app.vault.getAbstractFileByPath(notePath)
+          await window.app.vault.process(file, (data) => (oldText === '' ? data + newText : data.replace(oldText, newText)))
+        },
+        [`Daily/${tomorrow}.md`, from, to],
+      )
+    const row = root.locator('tbody tr', { hasText: 'Water the plants' })
+    await changeNote('', taskLine)
+    await root.getByRole('button', { name: 'Search' }).click()
+    await page.getByRole('textbox', { name: 'Search tasks' }).fill('Water the plants')
+    await row.getByText('Tomorrow', { exact: true }).waitFor()
+    try {
+      // A row that stays in the list shows its dates for the new day.
+      await setClock(1)
+      await row.getByText('Today', { exact: true }).waitFor()
+      await setClock(0)
+      await row.getByText('Tomorrow', { exact: true }).waitFor()
+      // Filters by day match the new day's tasks.
+      await addFilter('Daily note', 'Today')
+      await row.waitFor({ state: 'detached' })
+      await setClock(1)
+      await row.waitFor()
+    } finally {
+      await setClock(0)
+    }
+    await row.waitFor({ state: 'detached' })
+    await root.getByRole('button', { name: 'Remove filter' }).click()
+    await row.waitFor()
+    // The tasks are on this computer, so the table also follows the notes offline.
+    const session = await page.context().newCDPSession(page)
+    const setOffline = (offline) =>
+      session.send('Network.emulateNetworkConditions', { offline, latency: 0, downloadThroughput: -1, uploadThroughput: -1 })
+    await session.send('Network.enable')
+    await setOffline(true)
+    try {
+      await page.waitForFunction(() => !navigator.onLine)
+      await changeNote(taskLine, '')
+      await row.waitFor({ state: 'detached' })
+    } finally {
+      await setOffline(false)
+      await session.detach()
+    }
     await page.getByRole('button', { name: 'Clear search' }).click()
   })
 
