@@ -589,14 +589,18 @@ try {
     await page.getByRole('button', { name: 'Clear search' }).click()
   })
 
-  await step('moves a task to the daily note of its new start date', async () => {
+  await step('moves a task to the daily note of its new start date, and undoes the move with Mod+Z', async () => {
+    const sourceBefore = await read('Projects/Website.md')
     await root.getByRole('button', { name: 'Properties' }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Start' }).click()
     await page.keyboard.press('Escape')
     await root.getByRole('button', { name: 'Search' }).click()
     await page.getByRole('textbox', { name: 'Search tasks' }).fill('Prepare offsite')
-    await root.locator('tbody tr', { hasText: 'Prepare offsite agenda' }).getByRole('button', { name: /start date/u }).click()
-    await page.getByRole('button', { name: 'Tomorrow' }).click()
+    const setStartTomorrow = async () => {
+      await root.locator('tbody tr', { hasText: 'Prepare offsite agenda' }).getByRole('button', { name: /start date/u }).click()
+      await page.getByRole('button', { name: 'Tomorrow' }).click()
+    }
+    await setStartTomorrow()
     const tomorrow = await page.evaluate(() => window.moment().add(1, 'day').format('YYYY-MM-DD'))
     // The daily note did not exist: it is created from the template, and the task
     // with its subtask goes after the last line with content, as new tasks do.
@@ -608,6 +612,26 @@ try {
       return !source.includes('Prepare offsite agenda') && !source.includes('Book venue')
     }, 'The task is still in its old note.')
     await root.locator('tbody tr', { hasText: 'Prepare offsite agenda' }).getByText(tomorrow).waitFor()
+    // Mod+Z puts the task, with its subtask, back where it was in its note,
+    // without the start date, and takes it out of the daily note.
+    await root.getByRole('grid').focus()
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+KeyZ' : 'Control+KeyZ')
+    await waitFor(
+      async () => (await read('Projects/Website.md')) === sourceBefore,
+      'Mod+Z did not move the task back to its note.',
+    )
+    // The task is put back first, so the daily note changes a moment later.
+    await waitFor(
+      async () => (await read(`Daily/${tomorrow}.md`)) === `# ${tomorrow}\n\n`,
+      'Mod+Z did not take the task out of the daily note.',
+    )
+    await root.locator('tbody tr', { hasText: 'Prepare offsite agenda' }).getByText(tomorrow).waitFor({ state: 'detached' })
+    // The next steps expect the task in tomorrow's daily note, so it moves there again.
+    await setStartTomorrow()
+    await waitFor(
+      async () => (await read(`Daily/${tomorrow}.md`)) === note,
+      'The task did not move to tomorrow’s daily note again.',
+    )
     await page.getByRole('button', { name: 'Clear search' }).click()
     // Hide the column again, so the next steps see the table as before.
     await root.getByRole('button', { name: 'Properties' }).click()

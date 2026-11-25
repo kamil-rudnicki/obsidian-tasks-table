@@ -151,3 +151,33 @@ export const locateLine = (content: string, expectedLine: number, raw: string): 
 
   return nearest
 }
+
+// Adds the lines before the line at `index`, or at the end of the note when it
+// has fewer lines now.
+export const insertLinesAt = (content: string, index: number, newLines: string[]): string => {
+  const split = splitContent(content)
+  split.lines.splice(Math.min(Math.max(index, 0), split.lines.length), 0, ...newLines)
+  return joinContent(split)
+}
+
+// Finds lines that follow each other, nearest to where they were, when the
+// note changed after they were written.
+export const locateLines = (content: string, expectedLine: number, block: string[]): number | null => {
+  const lines = splitLines(content)
+  const matchesAt = (start: number): boolean => block.every((text, offset) => lines[start + offset] === text)
+
+  if (block.length === 0) {
+    return null
+  }
+  if (matchesAt(expectedLine)) {
+    return expectedLine
+  }
+
+  let nearest: number | null = null
+  for (let index = 0; index + block.length <= lines.length; index += 1) {
+    if (matchesAt(index) && (nearest === null || Math.abs(index - expectedLine) < Math.abs(nearest - expectedLine))) {
+      nearest = index
+    }
+  }
+  return nearest
+}
