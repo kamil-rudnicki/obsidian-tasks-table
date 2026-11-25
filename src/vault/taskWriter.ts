@@ -3,7 +3,7 @@ import { getToday, parseIsoDate, toLocalDateTime } from '@shared/dateLogic'
 import type { Settings } from '@shared/settingsTypes'
 import type { AddTaskCommentInput, CreateTaskInput, EditTaskCommentInput, Task, TaskChanges, UpdateTaskInput } from '@shared/taskTypes'
 import { UserError } from '@shared/userError'
-import { getTaskBlock, locateLine, removeLines, replaceLine, type TaskBlock } from './noteEdits'
+import { getTaskBlock, insertLinesAt, locateLine, locateLines, removeLines, replaceLine, type TaskBlock } from './noteEdits'
 import { createNoteFiles, normalizeNotePath, type TargetNote } from './noteFiles'
 import { splitLines, type IndexedTask } from './noteTasks'
 import { toPublicTask, type TaskIndex } from './taskIndex'
@@ -23,21 +23,34 @@ type TaskWriterOptions = {
 const taskChangedMessage = 'This task changed in the note. The list now shows the latest version.'
 
 // The table's own edits of task lines, newest last, so Mod+Z can put a line
-// back exactly as it was, with its dates. Edits that move or remove lines, or
-// add them, cannot be undone this way and clear the list.
+// back exactly as it was, with its dates, and a moved task back into the note
+// and the place it came from. Edits that remove or add tasks cannot be undone
+// this way and clear the list.
 type LineEdit = { notePath: string; line: number; before: string; after: string }
+type MoveEdit = {
+  // The task with its subtasks and notes as they were in their note, nesting included.
+  source: { notePath: string; line: number; lines: string[] }
+  // The same lines as they were added to the other note.
+  target: { notePath: string; line: number; lines: string[] }
+}
+type UndoEdit = ({ kind: 'line' } & LineEdit) | ({ kind: 'move' } & MoveEdit)
 const maxUndoEdits = 50
+const cannotUndoMessage = 'The task changed in its note since, so the last change cannot be undone.'
 
 // Writes task edits back to the Markdown notes, then re-indexes the notes.
 export const createTaskWriter = ({ app, index, indexer, getSettings, getQueryContext }: TaskWriterOptions) => {
   const { vault } = app
   const notes = createNoteFiles(app)
-  const undoEdits: LineEdit[] = []
+  const undoEdits: UndoEdit[] = []
+
+  const pushUndoEdit = (edit: UndoEdit): void => {
+    undoEdits.push(edit)
+    undoEdits.splice(0, undoEdits.length - maxUndoEdits)
+  }
 
   const rememberEdit = (edit: LineEdit): void => {
     if (edit.before !== edit.after) {
-      undoEdits.push(edit)
-      undoEdits.splice(0, undoEdits.length - maxUndoEdits)
+      pushUndoEdit({ kind: 'line', ...edit })
     }
   }
 
@@ -151,9 +164,9 @@ export const createTaskWriter = ({ app, index, indexer, getSettings, getQueryCon
     const movedLines = [edit(block.lines[0]), ...block.lines.slice(1)]
     const inserted = await notes.insertIntoNote(target, movedLines, getSettings().newTaskHeading)
     const { removed, content: sourceAfter } = await removeTaskBlock(source, sourceContent, block)
-    forgetEdits()
 
     if (!removed) {
+      forgetEdits()
       const targetAfter = await vault.process(inserted.file, (data) =>
         splitLines(data).slice(inserted.line, inserted.line + movedLines.length).join('\n') === movedLines.join('\n')
           ? removeLines(data, inserted.line, inserted.line + movedLines.length)
@@ -164,6 +177,15 @@ export const createTaskWriter = ({ app, index, indexer, getSettings, getQueryCon
       throw new UserError(taskChangedMessage)
     }
 
+    pushUndoEdit({
+      kind: 'move',
+      source: {
+        notePath: task.filePath,
+        line: block.start,
+        lines: splitLines(sourceContent).slice(block.start, block.end),
+      },
+      target: { notePath: target.notePath, line: inserted.line, lines: movedLines },
+    })
     await indexer.indexContent(source, sourceAfter)
     await indexer.indexContent(inserted.file, inserted.content)
     return getTaskAt(target.notePath, inserted.line)
@@ -266,30 +288,79 @@ export const createTaskWriter = ({ app, index, indexer, getSettings, getQueryCon
       return getTaskAt(target.notePath, inserted.line)
     })
 
-  // Puts the line of the newest edit back as it was. A line that changed in
-  // its note since is left as it is. Returns null when there is nothing to undo.
+  // Puts the line of an edit back as it was. A line that changed in its note
+  // since is left as it is.
+  const undoLineEdit = async (edit: LineEdit): Promise<Task> => {
+    const file = notes.getNote(edit.notePath)
+    const located: { line: number | null } = { line: null }
+    const content = file
+      ? await vault.process(file, (data) => {
+          located.line = locateLine(data, edit.line, edit.after)
+          return located.line === null ? data : replaceLine(data, located.line, edit.before)
+        })
+      : null
+
+    if (!file || content === null || located.line === null) {
+      forgetEdits()
+      throw new UserError(cannotUndoMessage)
+    }
+
+    await indexer.indexContent(file, content)
+    return getTaskAt(edit.notePath, located.line)
+  }
+
+  // Puts a moved task back into its note, where it was, as it was there, and
+  // only then removes it from the note it was moved to, so it is never lost.
+  // A task that changed in either note since stays where it is.
+  const undoMoveEdit = async ({ source, target }: MoveEdit): Promise<Task> => {
+    const sourceFile = notes.getNote(source.notePath)
+    const targetFile = notes.getNote(target.notePath)
+    const targetContent = targetFile ? await vault.read(targetFile) : null
+    const movedLine = targetContent === null ? null : locateLines(targetContent, target.line, target.lines)
+
+    if (!sourceFile || !targetFile || movedLine === null) {
+      forgetEdits()
+      throw new UserError(cannotUndoMessage)
+    }
+
+    const sourceAfter = await vault.process(sourceFile, (data) => insertLinesAt(data, source.line, source.lines))
+    // The lines were added at the source line, or at the end of a note that got shorter.
+    const restoredLine = locateLines(sourceAfter, source.line, source.lines) ?? source.line
+    let removed = false
+    const targetAfter = await vault.process(targetFile, (data) => {
+      const line = locateLines(data, movedLine, target.lines)
+      if (line === null) {
+        return data
+      }
+      removed = true
+      return removeLines(data, line, line + target.lines.length)
+    })
+
+    if (!removed) {
+      const sourceReverted = await vault.process(sourceFile, (data) => {
+        const line = locateLines(data, restoredLine, source.lines)
+        return line === null ? data : removeLines(data, line, line + source.lines.length)
+      })
+      await indexer.indexContent(sourceFile, sourceReverted)
+      await indexer.indexContent(targetFile, targetAfter)
+      forgetEdits()
+      throw new UserError(cannotUndoMessage)
+    }
+
+    await indexer.indexContent(targetFile, targetAfter)
+    await indexer.indexContent(sourceFile, sourceAfter)
+    return getTaskAt(source.notePath, restoredLine)
+  }
+
+  // Undoes the newest edit: puts a line back as it was, or a moved task back
+  // into its note. Returns null when there is nothing to undo.
   const undoLastEdit = (): Promise<Task | null> =>
     indexer.runExclusive(async () => {
       const edit = undoEdits.pop()
       if (!edit) {
         return null
       }
-      const file = notes.getNote(edit.notePath)
-      const located: { line: number | null } = { line: null }
-      const content = file
-        ? await vault.process(file, (data) => {
-            located.line = locateLine(data, edit.line, edit.after)
-            return located.line === null ? data : replaceLine(data, located.line, edit.before)
-          })
-        : null
-
-      if (!file || content === null || located.line === null) {
-        forgetEdits()
-        throw new UserError('The task changed in its note since, so the last change cannot be undone.')
-      }
-
-      await indexer.indexContent(file, content)
-      return getTaskAt(edit.notePath, located.line)
+      return edit.kind === 'move' ? undoMoveEdit(edit) : undoLineEdit(edit)
     })
 
   return { updateTask, moveTaskToToday, addComment, editComment, deleteTask, cutTask, createTask, undoLastEdit }

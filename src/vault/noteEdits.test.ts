@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { getTaskBlock, insertTaskLines, locateLine, removeLines, replaceLine } from './noteEdits'
+import { getTaskBlock, insertLinesAt, insertTaskLines, locateLine, locateLines, removeLines, replaceLine } from './noteEdits'
 
 describe('insertTaskLines', () => {
   test('appends after the last content line and keeps the trailing newline', () => {
@@ -85,5 +85,29 @@ describe('getTaskBlock', () => {
 describe('removeLines', () => {
   test('removes a block and keeps line endings', () => {
     expect(removeLines('a\r\nb\r\nc\r\nd\r\n', 1, 3)).toBe('a\r\nd\r\n')
+  })
+})
+
+describe('insertLinesAt', () => {
+  test('puts lines back where they were and keeps line endings', () => {
+    expect(insertLinesAt('a\r\nd\r\n', 1, ['b', '\tc'])).toBe('a\r\nb\r\n\tc\r\nd\r\n')
+    expect(insertLinesAt('a\n', 0, ['- [ ] A'])).toBe('- [ ] A\na\n')
+  })
+
+  test('adds the lines at the end when the note got shorter', () => {
+    expect(insertLinesAt('a\n', 5, ['b'])).toBe('a\nb\n')
+    expect(insertLinesAt('', 0, ['b'])).toBe('b\n')
+  })
+})
+
+describe('locateLines', () => {
+  test('finds a block of lines where it was, or the nearest copy of it', () => {
+    expect(locateLines('x\n- [ ] A\n\t- [ ] B\ny', 1, ['- [ ] A', '\t- [ ] B'])).toBe(1)
+    expect(locateLines('x\nx\n- [ ] A\n\t- [ ] B\n', 0, ['- [ ] A', '\t- [ ] B'])).toBe(2)
+  })
+
+  test('does not match a block whose lines changed', () => {
+    expect(locateLines('- [ ] A\n\t- [x] B\n', 0, ['- [ ] A', '\t- [ ] B'])).toBeNull()
+    expect(locateLines('- [ ] A', 0, [])).toBeNull()
   })
 })
